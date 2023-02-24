@@ -18,7 +18,10 @@ export class CollectionService {
   async collect(entry: CollectionRequest): Promise<Collection | null> {
     let saveEntry = null;
     this.logger.log('Saving entry');
-    const foundUnit = await this.wardService.pollingUnitByName(entry.name);
+    let foundUnit = await this.wardService.pollingUnitByName(entry.name);
+    if (!foundUnit)
+      foundUnit = await this.wardService.pollingUnitByCode(entry.code);
+
     if (foundUnit) {
       const createdEntry = new this.collectionModel(entry);
       saveEntry = await createdEntry.save();

@@ -69,4 +69,12 @@ export class WardService {
       name: name.toLowerCase(),
     });
   }
+
+  async pollingUnitByCode(code: string): Promise<PollingUnit | null> {
+    this.logger.log('Fetching pooling unit');
+
+    return await this.pollingUnitModel.findOne({
+      code: code.toLowerCase,
+    });
+  }
 }
