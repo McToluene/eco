@@ -15,17 +15,20 @@ export class CollectionService {
     private wardService: WardService,
   ) {}
 
-  async collect(entry: CollectionRequest): Promise<Collection | null> {
+  async collect(entries: CollectionRequest[]): Promise<Collection | null> {
     let saveEntry = null;
     this.logger.log('Saving entry');
-    let foundUnit = await this.wardService.pollingUnitByName(entry.name);
-    if (!foundUnit)
-      foundUnit = await this.wardService.pollingUnitByCode(entry.code);
+    for (const entry of entries) {
+      let foundUnit = await this.wardService.pollingUnitByName(entry.name);
+      if (!foundUnit)
+        foundUnit = await this.wardService.pollingUnitByCode(entry.code);
 
-    if (foundUnit) {
-      const createdEntry = new this.collectionModel(entry);
-      saveEntry = await createdEntry.save();
+      if (foundUnit) {
+        const createdEntry = new this.collectionModel(entry);
+        saveEntry = await createdEntry.save();
+      }
     }
+
     return saveEntry;
   }
 

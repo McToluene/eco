@@ -12,7 +12,7 @@ export class CollectionController {
 
   @Post('/')
   async collect(
-    @Body() entry: CollectionRequest,
+    @Body() entry: CollectionRequest[],
   ): Promise<BaseResponse<string>> {
     await this.collectionService.collect(entry);
     return {
