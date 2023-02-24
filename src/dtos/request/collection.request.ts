@@ -14,4 +14,9 @@ export default class CollectionRequest {
   @IsNotEmpty()
   @ApiProperty()
   data: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  @ApiProperty()
+  voters: number;
 }

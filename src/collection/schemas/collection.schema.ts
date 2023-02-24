@@ -13,6 +13,9 @@ export class Collection {
 
   @Prop()
   data: number;
+
+  @Prop()
+  voters: number;
 }
 
 export const CollectionSchema = SchemaFactory.createForClass(Collection);
