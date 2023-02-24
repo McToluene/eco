@@ -28,4 +28,9 @@ export class CollectionService {
     }
     return saveEntry;
   }
+
+  async get(entry: string): Promise<Collection | null> {
+    this.logger.log('Saving entry');
+    return await this.collectionModel.findOne({ name: entry });
+  }
 }
