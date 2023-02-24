@@ -70,6 +70,11 @@ export class WardService {
     });
   }
 
+  async pollingUnits(): Promise<PollingUnit[] | null> {
+    this.logger.log('Fetching pooling unit');
+    return await this.pollingUnitModel.find({});
+  }
+
   async pollingUnitByName(name: string): Promise<PollingUnit | null> {
     this.logger.log('Fetching pooling unit');
     return await this.pollingUnitModel.findOne({

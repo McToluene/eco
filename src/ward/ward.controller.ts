@@ -57,4 +57,14 @@ export class WardController {
       status: HttpStatus.OK,
     };
   }
+
+  @Get('/polling-unit')
+  async pollingUnits(): Promise<BaseResponse<PollingUnit[]>> {
+    const wardData = await this.wardService.pollingUnits();
+    return {
+      message: 'Entry fetched successfully!',
+      data: wardData,
+      status: HttpStatus.OK,
+    };
+  }
 }
