@@ -41,9 +41,9 @@ export class WardService {
         });
 
         if (!pollingUnit) {
-          unit.name = unit.name.toLowerCase();
           pollingUnit = new this.pollingUnitModel({
-            ...unit,
+            name: unit.name.toLowerCase(),
+            code: unit.code.toLowerCase(),
             wardName: entry.wardName,
           });
           pollingUnit = await pollingUnit.save();
@@ -59,7 +59,14 @@ export class WardService {
   ): Promise<PollingUnit[] | null> {
     this.logger.log('Fetching pooling unit');
     return await this.pollingUnitModel.find({
-      wardName,
+      wardName: wardName.toLowerCase(),
+    });
+  }
+
+  async pollingUnitByName(name: string): Promise<PollingUnit | null> {
+    this.logger.log('Fetching pooling unit');
+    return await this.pollingUnitModel.findOne({
+      name: name.toLowerCase(),
     });
   }
 }

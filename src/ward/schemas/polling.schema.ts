@@ -10,6 +10,9 @@ export class PollingUnit {
 
   @Prop()
   code: string;
+
+  @Prop()
+  wardName: string;
 }
 
 export const PollingUnitSchema = SchemaFactory.createForClass(PollingUnit);

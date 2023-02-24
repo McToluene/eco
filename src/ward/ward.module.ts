@@ -13,6 +13,7 @@ import { WardController } from './ward.controller';
     ]),
   ],
   providers: [WardService],
+  exports: [WardService],
   controllers: [WardController],
 })
 export class WardModule {}

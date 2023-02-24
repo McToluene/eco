@@ -6,7 +6,10 @@ export type CollectionDocument = HydratedDocument<Collection>;
 @Schema()
 export class Collection {
   @Prop()
-  pollingUnit: string;
+  name: string;
+
+  @Prop()
+  code: string;
 
   @Prop()
   data: number;
