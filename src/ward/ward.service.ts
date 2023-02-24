@@ -59,7 +59,7 @@ export class WardService {
   ): Promise<PollingUnit[] | null> {
     this.logger.log('Fetching pooling unit');
     return await this.pollingUnitModel.find({
-      wardName: wardName.toLowerCase(),
+      wardName: wardName,
     });
   }
 
