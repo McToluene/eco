@@ -2,7 +2,7 @@ import { Body, Controller, HttpStatus, Post, Get, Param } from '@nestjs/common';
 import { BaseResponse } from 'src/dtos/response/base.response';
 import { CollectionService } from './collection.service';
 import CollectionRequest from 'src/dtos/request/collection.request';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiTags } from '@nestjs/swagger';
 import { Collection } from './schemas/collection.schema';
 
 @Controller('collection')
@@ -11,6 +11,7 @@ export class CollectionController {
   constructor(private readonly collectionService: CollectionService) {}
 
   @Post('/')
+  @ApiBody({ type: [CollectionRequest] })
   async collect(
     @Body() entry: CollectionRequest[],
   ): Promise<BaseResponse<string>> {
