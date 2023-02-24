@@ -1,12 +1,12 @@
-import { Body, Controller, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpStatus, Param, Post } from '@nestjs/common';
 import { BaseResponse } from 'src/dtos/response/base.response';
 
 import WardRequest from 'src/dtos/request/ward.request';
 import { WardService } from './ward.service';
 import { Ward } from './schemas/ward.schema';
-import PollingUnitRequest from 'src/dtos/request/pollingunit.request';
 import { PollingUnit } from './schemas/polling.schema';
 import { ApiBody, ApiTags } from '@nestjs/swagger';
+import WardPollingUnitRequest from 'src/dtos/request/ward.pollingunit.request';
 
 @Controller('ward')
 @ApiTags('ward')
@@ -23,16 +23,28 @@ export class WardController {
     };
   }
 
-  @ApiBody({ type: [PollingUnitRequest] })
+  @ApiBody({ type: [WardPollingUnitRequest] })
   @Post('/polling-unit')
   async pollingUnit(
-    @Body() units: PollingUnitRequest[],
+    @Body() units: WardPollingUnitRequest[],
   ): Promise<BaseResponse<PollingUnit[]>> {
     const wardData = await this.wardService.pollingUnit(units);
     return {
       message: 'Entry saved successfully!',
       data: wardData,
       status: HttpStatus.CREATED,
+    };
+  }
+
+  @Get('/polling-unit/:wardName')
+  async pollingUnitsByWardName(
+    @Param('wardName') wardName: string,
+  ): Promise<BaseResponse<PollingUnit[]>> {
+    const wardData = await this.wardService.pollingUnitsByWardName(wardName);
+    return {
+      message: 'Entry fetched successfully!',
+      data: wardData,
+      status: HttpStatus.OK,
     };
   }
 }

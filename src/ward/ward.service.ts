@@ -3,8 +3,8 @@ import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { Ward, WardDocument } from './schemas/ward.schema';
 import WardRequest from 'src/dtos/request/ward.request';
-import PollingUnitRequest from 'src/dtos/request/pollingunit.request';
 import { PollingUnit, PollingUnitDocument } from './schemas/polling.schema';
+import WardPollingUnitRequest from 'src/dtos/request/ward.pollingunit.request';
 
 @Injectable()
 export class WardService {
@@ -29,20 +29,35 @@ export class WardService {
   }
 
   async pollingUnit(
-    entries: PollingUnitRequest[],
+    entries: WardPollingUnitRequest[],
   ): Promise<PollingUnit[] | null> {
     this.logger.log('Saving pooling');
     entries.forEach(async (entry) => {
-      let pollingUnit = await this.pollingUnitModel.findOne({
-        name: entry.name.toLowerCase(),
-      });
+      entry.pollingUnits.forEach(async (unit) => {
+        let pollingUnit = await this.pollingUnitModel.findOne({
+          name: unit.name,
+          wardName: entry.wardName,
+        });
 
-      if (!pollingUnit) {
-        pollingUnit.name = entry.name.toLowerCase();
-        pollingUnit = new this.pollingUnitModel(entry);
-        pollingUnit = await pollingUnit.save();
-      }
+        if (!pollingUnit) {
+          unit.name = unit.name.toLowerCase();
+          pollingUnit = new this.pollingUnitModel({
+            ...unit,
+            wardName: entry.wardName,
+          });
+          pollingUnit = await pollingUnit.save();
+        }
+      });
     });
     return await this.pollingUnitModel.find();
+  }
+
+  async pollingUnitsByWardName(
+    wardName: string,
+  ): Promise<PollingUnit[] | null> {
+    this.logger.log('Fetching pooling unit');
+    return await this.pollingUnitModel.find({
+      wardName,
+    });
   }
 }
