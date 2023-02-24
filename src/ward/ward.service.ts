@@ -32,8 +32,9 @@ export class WardService {
     entries: WardPollingUnitRequest[],
   ): Promise<PollingUnit[] | null> {
     this.logger.log('Saving pooling');
-    entries.forEach(async (entry) => {
-      entry.pollingUnits.forEach(async (unit) => {
+
+    for (const entry of entries) {
+      for (const unit of entry.pollingUnits) {
         let pollingUnit = await this.pollingUnitModel.findOne({
           name: unit.name,
           wardName: entry.wardName,
@@ -47,8 +48,9 @@ export class WardService {
           });
           pollingUnit = await pollingUnit.save();
         }
-      });
-    });
+      }
+    }
+
     return await this.pollingUnitModel.find();
   }
 

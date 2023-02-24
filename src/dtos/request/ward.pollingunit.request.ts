@@ -7,7 +7,7 @@ export default class WardPollingUnitRequest {
   @ApiProperty()
   wardName: string;
 
-  @ApiProperty({ type: PollingUnitRequest })
+  @ApiProperty({ type: [PollingUnitRequest] })
   @IsArray()
   pollingUnits: PollingUnitRequest[];
 }
