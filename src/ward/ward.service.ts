@@ -28,6 +28,13 @@ export class WardService {
     return foundWard;
   }
 
+  async getWard(): Promise<string[]> {
+    const units = await this.pollingUnitModel.find();
+    const ward = units.map((unit) => unit.wardName);
+    const uniqueWards = [...new Set(ward)];
+    return uniqueWards;
+  }
+
   async pollingUnit(
     entries: WardPollingUnitRequest[],
   ): Promise<PollingUnit[] | null> {

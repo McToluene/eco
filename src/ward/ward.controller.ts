@@ -23,6 +23,16 @@ export class WardController {
     };
   }
 
+  @Get('/')
+  async get(): Promise<BaseResponse<string[]>> {
+    const wardData = await this.wardService.getWard();
+    return {
+      message: 'Entry saved successfully!',
+      data: wardData,
+      status: HttpStatus.OK,
+    };
+  }
+
   @ApiBody({ type: [WardPollingUnitRequest] })
   @Post('/polling-unit')
   async pollingUnit(
