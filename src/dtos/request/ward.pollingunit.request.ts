@@ -5,6 +5,10 @@ import PollingUnitRequest from './pollingunit.request';
 export default class WardPollingUnitRequest {
   @IsString()
   @ApiProperty()
+  lgaId: string;
+
+  @IsString()
+  @ApiProperty()
   wardName: string;
 
   @ApiProperty({ type: [PollingUnitRequest] })

@@ -4,6 +4,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { WardModule } from './ward/ward.module';
 import { CollectionModule } from './collection/collection.module';
+import { AuthModule } from './auth/auth.module';
+import { UserModule } from './user/user.module';
+import { StateModule } from './state/state.module';
+import { LgaModule } from './lga/lga.module';
 
 @Module({
   imports: [
@@ -15,6 +19,10 @@ import { CollectionModule } from './collection/collection.module';
       }),
       inject: [ConfigService],
     }),
+    StateModule,
+    LgaModule,
+    UserModule,
+    AuthModule,
     WardModule,
     CollectionModule,
   ],

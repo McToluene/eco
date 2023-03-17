@@ -1,10 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { Ward, WardDocument } from './schemas/ward.schema';
-import WardRequest from 'src/dtos/request/ward.request';
+import WardRequest from '../dtos/request/ward.request';
 import { PollingUnit, PollingUnitDocument } from './schemas/polling.schema';
 import WardPollingUnitRequest from 'src/dtos/request/ward.pollingunit.request';
+import { LgaService } from '../lga/lga.service';
 
 @Injectable()
 export class WardService {
@@ -15,16 +21,28 @@ export class WardService {
     private wardModel: Model<WardDocument>,
     @InjectModel(PollingUnit.name)
     private pollingUnitModel: Model<PollingUnitDocument>,
+    private readonly lgaService: LgaService,
   ) {}
 
   async create(entry: WardRequest): Promise<Ward | null> {
     this.logger.log('Saving ward');
-    let foundWard = await this.wardModel.findOne({ name: entry.name });
-    if (!foundWard) {
-      entry.name = entry.name.toLowerCase();
-      foundWard = new this.wardModel(entry);
-      foundWard = await foundWard.save();
-    }
+    entry.name = entry.name.toLowerCase().trim();
+    const lga = this.lgaService.find(entry.lgaId);
+    if (!lga) throw new NotFoundException('Lga not found');
+
+    let foundWard = await this.wardModel.findOne({
+      name: entry.name,
+      lga: entry.lgaId,
+    });
+
+    if (foundWard) throw new ConflictException('Lga already exist');
+
+    foundWard = new this.wardModel({
+      name: entry.name,
+      lga: entry.lgaId,
+    });
+
+    foundWard = await foundWard.save();
     return foundWard;
   }
 
@@ -40,20 +58,30 @@ export class WardService {
   ): Promise<PollingUnit[] | null> {
     this.logger.log('Saving pooling');
 
-    for (const entry of entries) {
-      for (const unit of entry.pollingUnits) {
-        let pollingUnit = await this.pollingUnitModel.findOne({
-          name: unit.name,
-          wardName: entry.wardName,
+    for await (const entry of entries) {
+      const lga = await this.lgaService.find(entry.lgaId);
+      if (lga) {
+        const foundWard = await this.wardModel.findOne({
+          name: entry.wardName,
+          lga: entry.lgaId,
         });
 
-        if (!pollingUnit) {
-          pollingUnit = new this.pollingUnitModel({
-            name: unit.name.toLowerCase(),
-            code: unit.code.toLowerCase(),
-            wardName: entry.wardName,
-          });
-          pollingUnit = await pollingUnit.save();
+        if (foundWard) {
+          for (const unit of entry.pollingUnits) {
+            let pollingUnit = await this.pollingUnitModel.findOne({
+              name: unit.name,
+              wardName: entry.wardName,
+            });
+
+            if (!pollingUnit) {
+              pollingUnit = new this.pollingUnitModel({
+                name: unit.name.toLowerCase(),
+                code: unit.code.toLowerCase(),
+                wardName: entry.wardName,
+              });
+              pollingUnit = await pollingUnit.save();
+            }
+          }
         }
       }
     }
