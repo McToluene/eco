@@ -12,13 +12,10 @@ export class UserService {
   async findOne(userName: string): Promise<User | undefined> {
     this.logger.log('Finding user', userName);
     return this.userModel.findOne({ userName }).populate({
-      path: 'ward',
+      path: 'lga',
       populate: {
-        path: 'lga',
-        populate: {
-          path: 'state',
-          model: 'State',
-        },
+        path: 'state',
+        model: 'State',
       },
     });
   }

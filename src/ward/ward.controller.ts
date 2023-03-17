@@ -14,7 +14,7 @@ import WardRequest from 'src/dtos/request/ward.request';
 import { WardService } from './ward.service';
 import { Ward } from './schemas/ward.schema';
 import { PollingUnit } from './schemas/polling.schema';
-import { ApiBody, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiTags } from '@nestjs/swagger';
 import WardBulkRequest from 'src/dtos/request/wardBulk.request';
 import { JwtAuthGuard } from 'src/auth/guard/jwt-auth.guard';
 import { Request } from 'express';
@@ -81,6 +81,7 @@ export class WardController {
     };
   }
 
+  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get('/polling-unit')
   async pollingUnits(

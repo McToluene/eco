@@ -139,7 +139,7 @@ export class WardService {
     const lga = await this.lgaService.find(lgaId);
     if (!lga) throw new NotFoundException('Lga not found');
     const wards = await this.wardModel.find({ lga: lga });
-    const wardNames = wards.map((w) => w.name.toLowerCase());
+    const wardNames = wards.map((w) => w.name);
     return await this.pollingUnitModel.where('wardName').in(wardNames);
   }
 
