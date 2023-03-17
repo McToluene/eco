@@ -9,8 +9,4 @@ export default class LgaRequestDto {
   @IsString()
   @ApiProperty()
   name: string;
-
-  @IsString()
-  @ApiProperty()
-  code: string;
 }

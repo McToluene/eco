@@ -1,15 +1,17 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import mongoose, { HydratedDocument } from 'mongoose';
+import { PollingUnit } from 'src/ward/schemas/polling.schema';
 
 export type CollectionDocument = HydratedDocument<Collection>;
 
 @Schema()
 export class Collection {
-  @Prop()
-  name: string;
-
-  @Prop()
-  code: string;
+  @Prop({
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PollingUnit',
+    required: true,
+  })
+  pollingUnit: PollingUnit;
 
   @Prop()
   data: number;

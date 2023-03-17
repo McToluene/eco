@@ -34,7 +34,6 @@ export class LgaService {
     foundLga = new this.lgaModel({
       state: lga.stateId,
       name: lga.name.toLowerCase().trim(),
-      code: lga.code,
     });
     foundLga = await foundLga.save();
     return foundLga;

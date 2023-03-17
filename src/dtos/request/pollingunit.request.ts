@@ -9,4 +9,12 @@ export default class PollingUnitRequest {
   @IsString()
   @ApiProperty()
   code: string;
+
+  @IsString()
+  @ApiProperty()
+  data: string;
+
+  @IsString()
+  @ApiProperty()
+  voters: string;
 }

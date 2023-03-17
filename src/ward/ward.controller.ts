@@ -6,7 +6,7 @@ import { WardService } from './ward.service';
 import { Ward } from './schemas/ward.schema';
 import { PollingUnit } from './schemas/polling.schema';
 import { ApiBody, ApiTags } from '@nestjs/swagger';
-import WardPollingUnitRequest from 'src/dtos/request/ward.pollingunit.request';
+import WardBulkRequest from 'src/dtos/request/wardBulk.request';
 
 @Controller('ward')
 @ApiTags('ward')
@@ -23,20 +23,31 @@ export class WardController {
     };
   }
 
+  @ApiBody({ type: [WardRequest] })
+  @Post('/list')
+  async createList(@Body() ward: WardRequest[]): Promise<BaseResponse<Ward[]>> {
+    const wardData = await this.wardService.createList(ward);
+    return {
+      message: 'Entry saved successfully!',
+      data: wardData,
+      status: HttpStatus.CREATED,
+    };
+  }
+
   @Get('/')
   async get(): Promise<BaseResponse<string[]>> {
     const wardData = await this.wardService.getWard();
     return {
-      message: 'Entry saved successfully!',
+      message: 'Entry fetched successfully!',
       data: wardData,
       status: HttpStatus.OK,
     };
   }
 
-  @ApiBody({ type: [WardPollingUnitRequest] })
+  @ApiBody({ type: [WardBulkRequest] })
   @Post('/polling-unit')
   async pollingUnit(
-    @Body() units: WardPollingUnitRequest[],
+    @Body() units: WardBulkRequest[],
   ): Promise<BaseResponse<PollingUnit[]>> {
     const wardData = await this.wardService.pollingUnit(units);
     return {
