@@ -1,4 +1,13 @@
-import { Body, Controller, Get, HttpStatus, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { BaseResponse } from 'src/dtos/response/base.response';
 
 import WardRequest from 'src/dtos/request/ward.request';
@@ -7,6 +16,9 @@ import { Ward } from './schemas/ward.schema';
 import { PollingUnit } from './schemas/polling.schema';
 import { ApiBody, ApiTags } from '@nestjs/swagger';
 import WardBulkRequest from 'src/dtos/request/wardBulk.request';
+import { JwtAuthGuard } from 'src/auth/guard/jwt-auth.guard';
+import { Request } from 'express';
+import CurrentUser from 'src/auth/dtos/request/current.user';
 
 @Controller('ward')
 @ApiTags('ward')
@@ -69,9 +81,13 @@ export class WardController {
     };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('/polling-unit')
-  async pollingUnits(): Promise<BaseResponse<PollingUnit[]>> {
-    const wardData = await this.wardService.pollingUnits();
+  async pollingUnits(
+    @Req() req: Request,
+  ): Promise<BaseResponse<PollingUnit[]>> {
+    const user = req.user as CurrentUser;
+    const wardData = await this.wardService.pollingUnits(user.lgaId);
     return {
       message: 'Entry fetched successfully!',
       data: wardData,

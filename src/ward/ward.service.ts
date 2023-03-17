@@ -134,9 +134,13 @@ export class WardService {
     });
   }
 
-  async pollingUnits(): Promise<PollingUnit[] | null> {
+  async pollingUnits(lgaId: string): Promise<PollingUnit[] | null> {
     this.logger.log('Fetching pooling unit');
-    return await this.pollingUnitModel.find({});
+    const lga = await this.lgaService.find(lgaId);
+    if (!lga) throw new NotFoundException('Lga not found');
+    const wards = await this.wardModel.find({ lga: lga });
+    const wardNames = wards.map((w) => w.name.toLowerCase());
+    return await this.pollingUnitModel.where('wardName').in(wardNames);
   }
 
   async pollingUnitByName(name: string): Promise<PollingUnit | null> {

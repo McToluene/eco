@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { HydratedDocument } from 'mongoose';
 import { UserType } from '../enum/userType.enum';
-import { Ward } from 'src/ward/schemas/ward.schema';
+import { Lga } from 'src/lga/schemas/lga.schema';
 
 export type UserDocument = HydratedDocument<User>;
 
@@ -15,10 +15,10 @@ export class User {
 
   @Prop({
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Ward',
+    ref: 'Lga',
     required: true,
   })
-  ward: Ward;
+  lga: Lga;
 
   @Prop({ type: String, enum: UserType, default: UserType.AGENT })
   userType: UserType;

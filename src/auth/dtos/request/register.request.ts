@@ -5,5 +5,5 @@ import { ApiProperty } from '@nestjs/swagger';
 export default class RegisterRequest extends LoginRequest {
   @IsNotEmpty()
   @ApiProperty()
-  wardId: string;
+  lgaId: string;
 }

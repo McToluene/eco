@@ -15,6 +15,8 @@ export class Lga {
     required: true,
   })
   state: State;
+
+  id: string;
 }
 
 export const LgaSchema = SchemaFactory.createForClass(Lga);
