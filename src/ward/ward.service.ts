@@ -123,12 +123,14 @@ export class WardService {
     return await this.pollingUnitModel.find();
   }
 
-  async pollingUnitsByWardName(
-    wardName: string,
-  ): Promise<PollingUnit[] | null> {
+  async pollingUnitsByWardName(wardId: string): Promise<PollingUnit[] | null> {
     this.logger.log('Fetching pooling unit');
+
+    const ward = await this.wardModel.findById(wardId);
+    if (!ward) throw new NotFoundException('Ward not found');
+
     return await this.pollingUnitModel.find({
-      wardName: wardName,
+      wardName: ward.name,
     });
   }
 

@@ -1,8 +1,7 @@
-import { Body, Controller, HttpStatus, Post, Get, Param } from '@nestjs/common';
+import { Controller, HttpStatus, Get, Param } from '@nestjs/common';
 import { BaseResponse } from 'src/dtos/response/base.response';
 import { CollectionService } from './collection.service';
-import CollectionRequest from 'src/dtos/request/collection.request';
-import { ApiBody, ApiTags } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import { Collection } from './schemas/collection.schema';
 
 @Controller('collection')
@@ -10,18 +9,18 @@ import { Collection } from './schemas/collection.schema';
 export class CollectionController {
   constructor(private readonly collectionService: CollectionService) {}
 
-  @Post('/')
-  @ApiBody({ type: [CollectionRequest] })
-  async collect(
-    @Body() entry: CollectionRequest[],
-  ): Promise<BaseResponse<string>> {
-    await this.collectionService.collect(entry);
-    return {
-      message: 'Entry saved successfully!',
-      data: 'Entry saved successfully!',
-      status: HttpStatus.CREATED,
-    };
-  }
+  // @Post('/')
+  // @ApiBody({ type: [CollectionRequest] })
+  // async collect(
+  //   @Body() entry: CollectionRequest[],
+  // ): Promise<BaseResponse<string>> {
+  //   await this.collectionService.collect(entry);
+  //   return {
+  //     message: 'Entry saved successfully!',
+  //     data: 'Entry saved successfully!',
+  //     status: HttpStatus.CREATED,
+  //   };
+  // }
 
   @Get('/:pollingUnit')
   async getData(

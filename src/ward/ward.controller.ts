@@ -57,11 +57,11 @@ export class WardController {
     };
   }
 
-  @Get('/polling-unit/:wardName')
+  @Get('/polling-unit/:wardId')
   async pollingUnitsByWardName(
-    @Param('wardName') wardName: string,
+    @Param('wardId') wardId: string,
   ): Promise<BaseResponse<PollingUnit[]>> {
-    const wardData = await this.wardService.pollingUnitsByWardName(wardName);
+    const wardData = await this.wardService.pollingUnitsByWardName(wardId);
     return {
       message: 'Entry fetched successfully!',
       data: wardData,

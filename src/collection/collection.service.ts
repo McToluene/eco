@@ -23,7 +23,9 @@ export class CollectionService {
 
   async get(entry: string): Promise<Collection | null> {
     this.logger.log('Saving entry');
-    return await this.collectionModel.findOne({ name: entry.toUpperCase() });
+    return await this.collectionModel
+      .findOne({ name: entry.toUpperCase() })
+      .populate('pollingUnit');
   }
 
   async find(data: any): Promise<Collection | null> {
