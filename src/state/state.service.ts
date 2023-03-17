@@ -47,8 +47,8 @@ export class StateService {
     return await this.stateModel.find();
   }
 
-  async find(id: string) {
+  async find(id: string): Promise<State | null> {
     this.logger.log('Finding state');
-    return await this.stateModel.find({ id });
+    return await this.stateModel.findOne({ id });
   }
 }

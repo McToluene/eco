@@ -1,17 +1,9 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty } from 'class-validator';
 import { LoginRequest } from './login.request';
-import { UserType } from 'src/user/enum/userType.enum';
+import { ApiProperty } from '@nestjs/swagger';
 
 export default class RegisterRequest extends LoginRequest {
-  @IsString()
-  firstName: string;
-
-  @IsString()
-  lastName: string;
-
   @IsNotEmpty()
-  userType: UserType;
-
-  @IsNotEmpty()
-  stateId: string;
+  @ApiProperty()
+  wardId: string;
 }

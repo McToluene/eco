@@ -1,17 +1,19 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { MongooseModule } from '@nestjs/mongoose';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategy/jwt.strategy';
 import { LocalStrategy } from './strategy/local.stratrgy';
 import { AuthController } from './auth.controller';
 import { UserModule } from 'src/user/user.module';
 
+import { PassportModule } from '@nestjs/passport';
+import { WardModule } from 'src/ward/ward.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot(),
-    MongooseModule.forFeature([]),
+    PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -21,6 +23,8 @@ import { UserModule } from 'src/user/user.module';
       inject: [ConfigService],
     }),
     UserModule,
+
+    WardModule,
   ],
   providers: [AuthService, JwtStrategy, LocalStrategy],
   controllers: [AuthController],

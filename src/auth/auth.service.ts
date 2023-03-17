@@ -1,5 +1,10 @@
 import * as bcrypt from 'bcrypt';
-import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
@@ -7,6 +12,9 @@ import { UserService } from '../user/user.service';
 import { User } from 'src/user/schemas/user.schema';
 import AuthResponse from './dtos/response/auth.response';
 import TokenResponse from './dtos/response/token.response';
+import RegisterRequest from './dtos/request/register.request';
+import { UserType } from 'src/user/enum/userType.enum';
+import { WardService } from 'src/ward/ward.service';
 
 @Injectable()
 export class AuthService {
@@ -16,11 +24,12 @@ export class AuthService {
     private userService: UserService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private wardService: WardService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<User> {
+  async validateUser(userName: string, password: string): Promise<User> {
     let confirmedUser: User;
-    const user = await this.userService.findOne(email);
+    const user = await this.userService.findOne(userName);
     if (user && (await bcrypt.compare(password, user.password)))
       confirmedUser = user;
     return confirmedUser;
@@ -28,8 +37,8 @@ export class AuthService {
 
   login(user: User): AuthResponse {
     const payload = {
-      username: user.email,
-      sub: user.email,
+      username: user.userName,
+      sub: user.userName,
     };
 
     const token: TokenResponse = {
@@ -40,7 +49,10 @@ export class AuthService {
     return {
       token,
       user: {
-        email: user.email,
+        username: user.userName,
+        ward: user.ward.name,
+        lga: user.ward.lga.name,
+        state: user.ward.lga.state.name,
       },
     };
   }
@@ -54,12 +66,21 @@ export class AuthService {
     return hash;
   }
 
-  async registerUser(data: User): Promise<User> {
-    let user = await this.userService.findOne(data.email);
+  async registerUser(data: RegisterRequest): Promise<User> {
+    let user = await this.userService.findOne(data.username);
     if (user) throw new ConflictException(`User already exist!`);
 
+    const ward = await this.wardService.find(data.wardId);
+    if (!ward) throw new NotFoundException('Ward not found');
+
     data.password = await this.hashPassword(data.password);
-    user = await this.userService.create(data);
+    const newUser: User = {
+      userName: data.username,
+      password: data.password,
+      ward: ward,
+      userType: UserType.AGENT,
+    };
+    user = await this.userService.create(newUser);
     return user;
   }
 }

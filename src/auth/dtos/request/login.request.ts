@@ -1,10 +1,12 @@
-import { IsEmail, IsNotEmpty, IsString, Matches } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsString, Matches } from 'class-validator';
 
 export class LoginRequest {
-  @IsEmail()
-  email: string;
+  @ApiProperty()
+  username: string;
 
   @IsNotEmpty()
+  @ApiProperty()
   @IsString()
   @Matches(/^(?=.*[a-z])/, {
     message: 'Password must contain at least one lowercase character',

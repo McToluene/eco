@@ -1,4 +1,6 @@
 export default interface UserResponse {
-  type?: string;
-  email: string;
+  username: string;
+  ward: string;
+  lga: string;
+  state: string;
 }

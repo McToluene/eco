@@ -117,4 +117,15 @@ export class WardService {
       code: code.toLowerCase,
     });
   }
+
+  async find(id: string): Promise<Ward | null> {
+    this.logger.log('Finding state');
+    return await this.wardModel.findOne({ id }).populate({
+      path: 'lga',
+      populate: {
+        path: 'state',
+        model: 'State',
+      },
+    });
+  }
 }

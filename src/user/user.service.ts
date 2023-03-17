@@ -9,9 +9,18 @@ export class UserService {
 
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
-  async findOne(email: string): Promise<User | undefined> {
-    this.logger.log('Finding user', email);
-    return this.userModel.findOne({ email }).populate('role');
+  async findOne(userName: string): Promise<User | undefined> {
+    this.logger.log('Finding user', userName);
+    return this.userModel.findOne({ userName }).populate({
+      path: 'ward',
+      populate: {
+        path: 'lga',
+        populate: {
+          path: 'state',
+          model: 'State',
+        },
+      },
+    });
   }
 
   async create(userData: User): Promise<User> {
