@@ -3,11 +3,12 @@ import { BaseResponse } from 'src/dtos/response/base.response';
 import { CollectionService } from './collection.service';
 import { ApiTags } from '@nestjs/swagger';
 import { Collection } from './schemas/collection.schema';
+import { WardService } from 'src/ward/ward.service';
 
 @Controller('collection')
 @ApiTags('collection')
 export class CollectionController {
-  constructor(private readonly collectionService: CollectionService) {}
+  constructor(private readonly wardService: WardService) {}
 
   // @Post('/')
   // @ApiBody({ type: [CollectionRequest] })
@@ -26,7 +27,7 @@ export class CollectionController {
   async getData(
     @Param('pollingUnit') pollingUnit: string,
   ): Promise<BaseResponse<Collection>> {
-    const data = await this.collectionService.get(pollingUnit);
+    const data = await this.wardService.getCollection(pollingUnit);
     return {
       message: 'Entry fetched successfully!',
       data: data,

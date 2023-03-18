@@ -10,10 +10,13 @@ import { Ward, WardDocument } from './schemas/ward.schema';
 import WardRequest from '../dtos/request/ward.request';
 import { PollingUnit, PollingUnitDocument } from './schemas/polling.schema';
 import { LgaService } from '../lga/lga.service';
-import WardBulkRequest from 'src/dtos/request/wardBulk.request';
-import { CollectionService } from 'src/collection/collection.service';
+
 import StateWardBulkRequest from 'src/dtos/request/state.ward.bulk.request';
 import PollingUnitResponse from './dtos/response/pollingUnit.response';
+import {
+  CollectionDocument,
+  Collection,
+} from 'src/collection/schemas/collection.schema';
 
 @Injectable()
 export class WardService {
@@ -25,9 +28,32 @@ export class WardService {
     @InjectModel(PollingUnit.name)
     private pollingUnitModel: Model<PollingUnitDocument>,
 
-    private readonly collectionService: CollectionService,
     private readonly lgaService: LgaService,
+    @InjectModel(Collection.name)
+    private collectionModel: Model<CollectionDocument>,
   ) {}
+
+  async collect(entry: any): Promise<Collection | null> {
+    let saveEntry = null;
+    this.logger.log('Saving entry');
+    const createdEntry = new this.collectionModel(entry);
+    saveEntry = await createdEntry.save();
+
+    return saveEntry;
+  }
+
+  async getCollection(entry: string): Promise<Collection | null> {
+    this.logger.log('Fetching entry');
+    const pu = await this.pollingUnitModel.findOne({ name: entry });
+    return await this.collectionModel
+      .findOne({ pollingUnit: pu })
+      .populate('pollingUnit');
+  }
+
+  async findCollection(data: any): Promise<Collection | null> {
+    this.logger.log('Finding collections');
+    return await this.collectionModel.findOne({ ...data });
+  }
 
   async create(entry: WardRequest): Promise<Ward | null> {
     this.logger.log('Saving ward');
@@ -121,7 +147,7 @@ export class WardService {
             });
             pollingUnit = await pollingUnit.save();
             if (pollingUnit) {
-              const collection = await this.collectionService.find({
+              const collection = await this.findCollection({
                 pollingUnit,
               });
               if (!collection) {
@@ -130,7 +156,7 @@ export class WardService {
                   data: entry.data,
                   voters: entry.voters,
                 };
-                await this.collectionService.collect(collect);
+                await this.collect(collect);
                 this.logger.log('PollingUnit saved ' + pollingUnit.name);
               }
             }
