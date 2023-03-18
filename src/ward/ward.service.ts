@@ -12,6 +12,8 @@ import { PollingUnit, PollingUnitDocument } from './schemas/polling.schema';
 import { LgaService } from '../lga/lga.service';
 import WardBulkRequest from 'src/dtos/request/wardBulk.request';
 import { CollectionService } from 'src/collection/collection.service';
+import StateWardBulkRequest from 'src/dtos/request/state.ward.bulk.request';
+import PollingUnitResponse from './dtos/response/pollingUnit.response';
 
 @Injectable()
 export class WardService {
@@ -48,6 +50,7 @@ export class WardService {
     foundWard = await foundWard.save();
     return foundWard;
   }
+
   async createList(entries: WardRequest[]): Promise<Ward[] | null> {
     this.logger.log('Saving ward');
     const ward = [];
@@ -76,16 +79,32 @@ export class WardService {
 
   async getWard(): Promise<string[]> {
     const units = await this.pollingUnitModel.find();
-    const ward = units.map((unit) => unit.wardName);
-    const uniqueWards = [...new Set(ward)];
-    return uniqueWards;
+    // const ward = units.map((unit) => unit.wardName);
+    // const uniqueWards = [...new Set(ward)];
+    return units.map((m) => m.name);
   }
 
-  async pollingUnit(entries: WardBulkRequest[]): Promise<PollingUnit[] | null> {
+  async pollingUnit(data: StateWardBulkRequest): Promise<PollingUnit[] | null> {
     this.logger.log('Saving pooling');
 
-    for await (const entry of entries) {
-      const ward = await this.wardModel.findById(entry.wardId);
+    const lga = await this.lgaService.find(data.lgaId);
+    if (!lga) throw new NotFoundException('Lga not found');
+
+    for await (const entry of data.wardData) {
+      let ward = await this.wardModel.findOne({
+        name: entry.wardName,
+        lga: data.lgaId,
+      });
+
+      if (!ward) {
+        ward = new this.wardModel({
+          name: entry.wardName,
+          lga: data.lgaId,
+        });
+
+        ward = await ward.save();
+      }
+
       if (ward) {
         this.logger.log('Ward found ' + ward.name);
         const collections = entry.collection;
@@ -98,7 +117,7 @@ export class WardService {
             pollingUnit = new this.pollingUnitModel({
               name: entry.name.toLowerCase(),
               code: entry.code.toLowerCase(),
-              wardName: ward.name,
+              ward: ward,
             });
             pollingUnit = await pollingUnit.save();
             if (pollingUnit) {
@@ -134,13 +153,23 @@ export class WardService {
     });
   }
 
-  async pollingUnits(lgaId: string): Promise<PollingUnit[] | null> {
+  async pollingUnits(lgaId: string): Promise<PollingUnitResponse[] | null> {
     this.logger.log('Fetching pooling unit');
     const lga = await this.lgaService.find(lgaId);
     if (!lga) throw new NotFoundException('Lga not found');
     const wards = await this.wardModel.find({ lga: lga });
-    const wardNames = wards.map((w) => w.name);
-    return await this.pollingUnitModel.where('wardName').in(wardNames);
+    const wardIds = wards.map((w) => w.id);
+    const pollingUnits = await this.pollingUnitModel
+      .where('ward')
+      .in(wardIds)
+      .populate('ward');
+
+    return pollingUnits.map((p) => ({
+      name: p.name,
+      code: p.code,
+      _id: p.id,
+      wardName: p.ward.name,
+    }));
   }
 
   async pollingUnitByName(name: string): Promise<PollingUnit | null> {

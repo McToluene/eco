@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import mongoose, { HydratedDocument } from 'mongoose';
+import { Ward } from './ward.schema';
 
 export type PollingUnitDocument = HydratedDocument<PollingUnit>;
 
@@ -11,8 +12,12 @@ export class PollingUnit {
   @Prop()
   code: string;
 
-  @Prop()
-  wardName: string;
+  @Prop({
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Ward',
+    required: true,
+  })
+  ward: Ward;
 }
 
 export const PollingUnitSchema = SchemaFactory.createForClass(PollingUnit);

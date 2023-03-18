@@ -15,10 +15,12 @@ import { WardService } from './ward.service';
 import { Ward } from './schemas/ward.schema';
 import { PollingUnit } from './schemas/polling.schema';
 import { ApiBearerAuth, ApiBody, ApiTags } from '@nestjs/swagger';
-import WardBulkRequest from 'src/dtos/request/wardBulk.request';
+
 import { JwtAuthGuard } from 'src/auth/guard/jwt-auth.guard';
 import { Request } from 'express';
 import CurrentUser from 'src/auth/dtos/request/current.user';
+import StateWardBulkRequest from 'src/dtos/request/state.ward.bulk.request';
+import PollingUnitResponse from './dtos/response/pollingUnit.response';
 
 @Controller('ward')
 @ApiTags('ward')
@@ -56,10 +58,10 @@ export class WardController {
     };
   }
 
-  @ApiBody({ type: [WardBulkRequest] })
+  @ApiBody({ type: StateWardBulkRequest })
   @Post('/polling-unit')
   async pollingUnit(
-    @Body() units: WardBulkRequest[],
+    @Body() units: StateWardBulkRequest,
   ): Promise<BaseResponse<PollingUnit[]>> {
     const wardData = await this.wardService.pollingUnit(units);
     return {
@@ -86,7 +88,7 @@ export class WardController {
   @Get('/polling-unit')
   async pollingUnits(
     @Req() req: Request,
-  ): Promise<BaseResponse<PollingUnit[]>> {
+  ): Promise<BaseResponse<PollingUnitResponse[]>> {
     const user = req.user as CurrentUser;
     const wardData = await this.wardService.pollingUnits(user.lgaId);
     return {

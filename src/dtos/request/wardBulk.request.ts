@@ -5,7 +5,7 @@ import CollectionRequest from './collection.request';
 export default class WardBulkRequest {
   @IsString()
   @ApiProperty()
-  wardId: string;
+  wardName: string;
 
   @ApiProperty({ type: [CollectionRequest] })
   @IsArray()
