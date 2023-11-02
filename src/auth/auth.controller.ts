@@ -35,15 +35,6 @@ export class AuthController {
     };
   }
 
-  // async registerAll(@Req() req: Request): Promise<BaseResponse<string>> {
-  //   await this.authService.registerAll();
-  //   return {
-  //     message: 'Logged in successfully!',
-  //     data: 'Registration successful',
-  //     status: HttpStatus.OK,
-  //   };
-  // }
-
   @Post('/register')
   @ApiBody({ type: RegisterRequest })
   async registerUser(

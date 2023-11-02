@@ -9,6 +9,9 @@ export class Ward {
   @Prop()
   name: string;
 
+  @Prop()
+  code: string;
+
   @Prop({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Lga',
