@@ -4,9 +4,11 @@ import { RegisteredService } from './registered.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Registered, RegisteredSchema } from './schemas/registered.schema';
 import { PollingUnit, PollingUnitSchema } from '../ward/schemas/polling.schema';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot(),
     MongooseModule.forFeature([
       { name: Registered.name, schema: RegisteredSchema },
       { name: PollingUnit.name, schema: PollingUnitSchema },

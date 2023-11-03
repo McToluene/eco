@@ -6,9 +6,10 @@ import {
   Param,
   Post,
   UploadedFile,
+  UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { RegisteredService } from './registered.service';
 
 import { Express } from 'express';
@@ -19,7 +20,7 @@ import { Registered } from './schemas/registered.schema';
 export class RegisteredController {
   constructor(private readonly registeredService: RegisteredService) {}
 
-  @Post(':pollingUnitId')
+  @Post('/:pollingUnitId')
   @UseInterceptors(FileInterceptor('file'))
   async uploadExcel(
     @UploadedFile() file: Express.Multer.File,
@@ -39,6 +40,20 @@ export class RegisteredController {
     return {
       message: 'Registered voters fetched successfully!',
       data: lgas,
+      status: HttpStatus.OK,
+    };
+  }
+
+  @Post('/upload/picture')
+  @UseInterceptors(FilesInterceptor('files'))
+  async uploadFile(
+    @UploadedFiles() files: Array<Express.Multer.File>,
+  ): Promise<BaseResponse<void>> {
+    if (!files) throw new BadRequestException('Please add files to upload');
+    const response = await this.registeredService.uploadMultipleFiles(files);
+    return {
+      message: 'Registered voters picture uploaded fetched successfully!',
+      data: response,
       status: HttpStatus.OK,
     };
   }

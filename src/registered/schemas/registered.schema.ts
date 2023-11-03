@@ -21,6 +21,9 @@ export class Registered {
   @Prop()
   dob: string;
 
+  @Prop()
+  imageUrl: string;
+
   @Prop({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'PollingUnit',
