@@ -10,6 +10,9 @@ export class Registered {
   name: string;
 
   @Prop()
+  refIndex: number;
+
+  @Prop()
   id: string;
 
   @Prop()

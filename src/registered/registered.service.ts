@@ -24,7 +24,26 @@ export class RegisteredService {
     const pu = await this.pollingUnitModel.findById(pollingUnitId).exec();
     if (!pu) throw new NotFoundException('Polling Unit not found!');
 
-    const voters = RegisteredHelper.processFile(file);
-    this.registeredModel.insertMany(voters);
+    const data = RegisteredHelper.processFile(file);
+
+    const registeredVoters: Registered[] = data.map((data, i) => {
+      const voter = new Registered();
+      voter.name = data['NAME'];
+      voter.id = data['ID'];
+      voter.gender = data['GENDER'];
+      voter.dob = data['DOB'];
+      voter.pollingUnit = pu;
+      voter.refIndex = i + 1;
+      return voter;
+    });
+
+    this.registeredModel.insertMany(registeredVoters);
+  }
+
+  async findRegisteredVoters(pollingUnitId: string): Promise<Registered[]> {
+    const pu = await this.pollingUnitModel.findById(pollingUnitId).exec();
+    if (!pu) throw new NotFoundException('Polling Unit not found!');
+
+    return await this.registeredModel.find({ pollingUnit: pu });
   }
 }

@@ -1,13 +1,11 @@
-import { readFileSync } from 'fs';
 import * as xlsx from 'xlsx';
 import { NotAcceptableException } from '@nestjs/common';
-import { RegisteredVoter } from '../dtos/request/upload.request.dto';
 
 export class RegisteredHelper {
-  static processFile(file: Express.Multer.File): RegisteredVoter[] {
+  static processFile(file: Express.Multer.File): any[] {
     if (file) {
-      const requiredProperties = ['name', 'id', 'gender', 'dob'];
-      const workbook = xlsx.read(readFileSync(file.path), { type: 'buffer' });
+      const requiredProperties = ['NAME', 'ID', 'GENDER', 'DOB'];
+      const workbook = xlsx.read(file.buffer, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
       const jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
@@ -19,16 +17,7 @@ export class RegisteredHelper {
           );
         }
       }
-
-      const registeredVoters: RegisteredVoter[] = jsonData.map((data) => {
-        const voter = new RegisteredVoter();
-        voter.name = data['name'];
-        voter.id = data['id'];
-        voter.gender = data['gender'];
-        voter.dob = data['dob'];
-        return voter;
-      });
-      return registeredVoters;
+      return jsonData;
     }
   }
 }
