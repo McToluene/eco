@@ -3,7 +3,6 @@ import { AppService } from './app.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { WardModule } from './ward/ward.module';
-import { CollectionModule } from './collection/collection.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { StateModule } from './state/state.module';
@@ -24,7 +23,6 @@ import { LgaModule } from './lga/lga.module';
     UserModule,
     AuthModule,
     WardModule,
-    CollectionModule,
   ],
   controllers: [],
   providers: [AppService],

@@ -13,10 +13,6 @@ import { LgaService } from '../lga/lga.service';
 
 import StateWardBulkRequest from 'src/dtos/request/state.ward.bulk.request';
 import PollingUnitResponse from './dtos/response/pollingUnit.response';
-import {
-  CollectionDocument,
-  Collection,
-} from 'src/collection/schemas/collection.schema';
 
 @Injectable()
 export class WardService {
@@ -29,31 +25,7 @@ export class WardService {
     private pollingUnitModel: Model<PollingUnitDocument>,
 
     private readonly lgaService: LgaService,
-    @InjectModel(Collection.name)
-    private collectionModel: Model<CollectionDocument>,
   ) {}
-
-  async collect(entry: any): Promise<Collection | null> {
-    let saveEntry = null;
-    this.logger.log('Saving entry');
-    const createdEntry = new this.collectionModel(entry);
-    saveEntry = await createdEntry.save();
-
-    return saveEntry;
-  }
-
-  async getCollection(entry: string): Promise<Collection | null> {
-    this.logger.log('Fetching entry');
-    const pu = await this.pollingUnitModel.findOne({ name: entry });
-    return await this.collectionModel
-      .findOne({ pollingUnit: pu })
-      .populate('pollingUnit');
-  }
-
-  async findCollection(data: any): Promise<Collection | null> {
-    this.logger.log('Finding collections');
-    return await this.collectionModel.findOne({ ...data });
-  }
 
   async create(entry: WardRequest): Promise<Ward | null> {
     this.logger.log('Saving ward');
@@ -105,8 +77,6 @@ export class WardService {
 
   async getWard(): Promise<string[]> {
     const units = await this.pollingUnitModel.find();
-    // const ward = units.map((unit) => unit.wardName);
-    // const uniqueWards = [...new Set(ward)];
     return units.map((m) => m.name);
   }
 
@@ -146,20 +116,20 @@ export class WardService {
               ward: ward,
             });
             pollingUnit = await pollingUnit.save();
-            if (pollingUnit) {
-              const collection = await this.findCollection({
-                pollingUnit,
-              });
-              if (!collection) {
-                const collect = {
-                  pollingUnit,
-                  data: entry.data,
-                  voters: entry.voters,
-                };
-                await this.collect(collect);
-                this.logger.log('PollingUnit saved ' + pollingUnit.name);
-              }
-            }
+            // if (pollingUnit) {
+            //   const collection = await this.findCollection({
+            //     pollingUnit,
+            //   });
+            //   if (!collection) {
+            //     const collect = {
+            //       pollingUnit,
+            //       data: entry.data,
+            //       voters: entry.voters,
+            //     };
+            //     await this.collect(collect);
+            //     this.logger.log('PollingUnit saved ' + pollingUnit.name);
+            //   }
+            // }
           }
         }
       }
