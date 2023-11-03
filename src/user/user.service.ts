@@ -11,13 +11,7 @@ export class UserService {
 
   async findOne(userName: string): Promise<User | undefined> {
     this.logger.log('Finding user', userName);
-    return this.userModel.findOne({ userName }).populate({
-      path: 'lga',
-      populate: {
-        path: 'state',
-        model: 'State',
-      },
-    });
+    return this.userModel.findOne({ userName }).populate('state');
   }
 
   async create(userData: User): Promise<User> {
