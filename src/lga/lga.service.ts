@@ -25,7 +25,7 @@ export class LgaService {
     if (!state) throw new NotFoundException('state not found');
 
     let foundLga = await this.lgaModel.findOne({
-      name: lga.name.toLowerCase().trim(),
+      name: lga.name.trim().toUpperCase(),
       state: lga.stateId,
     });
 
@@ -33,7 +33,7 @@ export class LgaService {
 
     foundLga = new this.lgaModel({
       state: lga.stateId,
-      name: lga.name.toLowerCase().trim(),
+      name: lga.name.trim().toUpperCase(),
     });
     foundLga = await foundLga.save();
     return foundLga;
@@ -46,12 +46,12 @@ export class LgaService {
       const state = await this.stateService.find(lga.stateId);
       if (state) {
         const foundLga = await this.lgaModel.findOne({
-          name: lga.name.toLowerCase(),
+          name: lga.name.trim().toUpperCase(),
           state: lga.stateId,
         });
 
         if (!foundLga) {
-          lga.name = lga.name.toLowerCase();
+          lga.name = lga.name.trim().toUpperCase();
           notExistLga.push(new this.lgaModel(lga));
         }
       }

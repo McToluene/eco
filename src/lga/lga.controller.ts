@@ -1,17 +1,15 @@
 import { Body, Controller, HttpStatus, Post, Get } from '@nestjs/common';
-import { ApiBody, ApiTags } from '@nestjs/swagger';
+
 import { BaseResponse } from 'src/dtos/response/base.response';
 import LgaRequestDto from './dtos/request/lga.request.dto';
 import { Lga } from './schemas/lga.schema';
 import { LgaService } from './lga.service';
 
 @Controller('lga')
-@ApiTags('lga')
 export class LgaController {
   constructor(private readonly lgaService: LgaService) {}
 
   @Post('/')
-  @ApiBody({ type: LgaRequestDto })
   async create(@Body() data: LgaRequestDto): Promise<BaseResponse<Lga>> {
     const lga = await this.lgaService.create(data);
     return {
@@ -22,7 +20,6 @@ export class LgaController {
   }
 
   @Post('/list')
-  @ApiBody({ type: [LgaRequestDto] })
   async createList(
     @Body() data: LgaRequestDto[],
   ): Promise<BaseResponse<Lga[]>> {

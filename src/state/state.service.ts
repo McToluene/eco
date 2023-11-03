@@ -15,10 +15,11 @@ export class StateService {
   async create(state: StateRequestDto): Promise<State | null> {
     this.logger.log('Saving state');
     let foundState = await this.stateModel.findOne({
-      name: state.name.toLowerCase(),
+      name: state.name.trim().toUpperCase(),
+      code: state.code,
     });
     if (!foundState) {
-      state.name = state.name.toLowerCase();
+      state.name = state.name.trim().toUpperCase();
       foundState = new this.stateModel(state);
       foundState = await foundState.save();
     }
@@ -30,14 +31,14 @@ export class StateService {
     const notExistStates = [];
     for await (const state of states) {
       const foundState = await this.stateModel.findOne({
-        name: state.name.toLowerCase(),
+        name: state.name.trim().toUpperCase(),
+        code: state.code,
       });
       if (!foundState) {
-        state.name = state.name.toLowerCase();
+        state.name = state.name.trim().toUpperCase();
         notExistStates.push(new this.stateModel(state));
       }
     }
-
     const savedStates = await this.stateModel.insertMany(notExistStates);
     return savedStates;
   }

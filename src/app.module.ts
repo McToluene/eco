@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { StateModule } from './state/state.module';
 import { LgaModule } from './lga/lga.module';
+import { RegisteredModule } from './registered/registered.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { LgaModule } from './lga/lga.module';
     UserModule,
     AuthModule,
     WardModule,
+    RegisteredModule,
   ],
   controllers: [],
   providers: [AppService],

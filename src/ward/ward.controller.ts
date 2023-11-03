@@ -8,22 +8,20 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { BaseResponse } from 'src/dtos/response/base.response';
+import { BaseResponse } from '../dtos/response/base.response';
 
-import WardRequest from 'src/dtos/request/ward.request';
+import WardRequest from '../dtos/request/ward.request';
 import { WardService } from './ward.service';
 import { Ward } from './schemas/ward.schema';
 import { PollingUnit } from './schemas/polling.schema';
-import { ApiBearerAuth, ApiBody, ApiTags } from '@nestjs/swagger';
 
-import { JwtAuthGuard } from 'src/auth/guard/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { Request } from 'express';
-import CurrentUser from 'src/auth/dtos/request/current.user';
-import StateWardBulkRequest from 'src/dtos/request/state.ward.bulk.request';
+import CurrentUser from '../auth/dtos/request/current.user';
 import PollingUnitResponse from './dtos/response/pollingUnit.response';
+import PollingUnitRequest from 'src/dtos/request/pollingunit.request';
 
 @Controller('ward')
-@ApiTags('ward')
 export class WardController {
   constructor(private readonly wardService: WardService) {}
 
@@ -37,7 +35,6 @@ export class WardController {
     };
   }
 
-  @ApiBody({ type: [WardRequest] })
   @Post('/list')
   async createList(@Body() ward: WardRequest[]): Promise<BaseResponse<Ward[]>> {
     const wardData = await this.wardService.createList(ward);
@@ -58,12 +55,25 @@ export class WardController {
     };
   }
 
-  @ApiBody({ type: StateWardBulkRequest })
-  @Post('/polling-unit')
-  async pollingUnit(
-    @Body() units: StateWardBulkRequest,
+  @Post(':id/polling-unit')
+  async addPoolingUnit(
+    @Body() units: PollingUnitRequest,
+    @Param() id: string,
+  ): Promise<BaseResponse<PollingUnit>> {
+    const wardData = await this.wardService.pollingUnit(id, units);
+    return {
+      message: 'Entry saved successfully!',
+      data: wardData,
+      status: HttpStatus.CREATED,
+    };
+  }
+
+  @Post(':id/polling-unit/list')
+  async addPoolingUnits(
+    @Body() units: PollingUnitRequest[],
+    @Param() id: string,
   ): Promise<BaseResponse<PollingUnit[]>> {
-    const wardData = await this.wardService.pollingUnit(units);
+    const wardData = await this.wardService.createPollingUnits(id, units);
     return {
       message: 'Entry saved successfully!',
       data: wardData,
@@ -83,7 +93,6 @@ export class WardController {
     };
   }
 
-  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get('/polling-unit')
   async pollingUnits(

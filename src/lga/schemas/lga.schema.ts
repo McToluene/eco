@@ -9,6 +9,9 @@ export class Lga {
   @Prop()
   name: string;
 
+  @Prop()
+  code: string;
+
   @Prop({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'State',

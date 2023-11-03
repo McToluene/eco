@@ -1,17 +1,15 @@
 import { Body, Controller, HttpStatus, Post, Get } from '@nestjs/common';
 import { StateService } from './state.service';
-import { ApiBody, ApiTags } from '@nestjs/swagger';
+
 import { BaseResponse } from 'src/dtos/response/base.response';
 import { State } from './schemas/state.schema';
 import StateRequestDto from './dtos/request/state.request.dto';
 
 @Controller('state')
-@ApiTags('state')
 export class StateController {
   constructor(private readonly stateService: StateService) {}
 
   @Post('/')
-  @ApiBody({ type: StateRequestDto })
   async create(@Body() data: StateRequestDto): Promise<BaseResponse<State>> {
     const state = await this.stateService.create(data);
     return {
@@ -22,7 +20,6 @@ export class StateController {
   }
 
   @Post('/list')
-  @ApiBody({ type: [StateRequestDto] })
   async createList(
     @Body() data: StateRequestDto[],
   ): Promise<BaseResponse<State[]>> {

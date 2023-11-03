@@ -14,17 +14,13 @@ import { AuthService } from './auth.service';
 import { BaseResponse } from '../dtos/response/base.response';
 import AuthResponse from './dtos/response/auth.response';
 import { User } from '../user/schemas/user.schema';
-import { ApiBody, ApiTags } from '@nestjs/swagger';
 import RegisterRequest from './dtos/request/register.request';
-import { LoginRequest } from './dtos/request/login.request';
 
 @Controller('auth')
-@ApiTags('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @UseGuards(LocalAuthGuard)
-  @ApiBody({ type: LoginRequest })
   @Post('/login')
   async login(@Req() req: Request): Promise<BaseResponse<AuthResponse>> {
     const response = this.authService.login(req.user as User);
@@ -36,7 +32,6 @@ export class AuthController {
   }
 
   @Post('/register')
-  @ApiBody({ type: RegisterRequest })
   async registerUser(
     @Body() user: RegisterRequest,
   ): Promise<BaseResponse<AuthResponse>> {

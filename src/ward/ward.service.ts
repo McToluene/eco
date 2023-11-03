@@ -10,9 +10,8 @@ import { Ward, WardDocument } from './schemas/ward.schema';
 import WardRequest from '../dtos/request/ward.request';
 import { PollingUnit, PollingUnitDocument } from './schemas/polling.schema';
 import { LgaService } from '../lga/lga.service';
-
-import StateWardBulkRequest from 'src/dtos/request/state.ward.bulk.request';
 import PollingUnitResponse from './dtos/response/pollingUnit.response';
+import PollingUnitRequest from 'src/dtos/request/pollingunit.request';
 
 @Injectable()
 export class WardService {
@@ -29,20 +28,22 @@ export class WardService {
 
   async create(entry: WardRequest): Promise<Ward | null> {
     this.logger.log('Saving ward');
-    entry.name = entry.name.toLowerCase().trim();
+    entry.name = entry.name.trim().toUpperCase();
     const lga = this.lgaService.find(entry.lgaId);
     if (!lga) throw new NotFoundException('Lga not found');
 
     let foundWard = await this.wardModel.findOne({
-      name: entry.name,
+      name: entry.name.trim().toUpperCase(),
       lga: entry.lgaId,
+      code: entry.code,
     });
 
     if (foundWard) throw new ConflictException('Lga already exist');
 
     foundWard = new this.wardModel({
-      name: entry.name,
+      name: entry.name.trim().toUpperCase(),
       lga: entry.lgaId,
+      code: entry.code,
     });
 
     foundWard = await foundWard.save();
@@ -53,20 +54,22 @@ export class WardService {
     this.logger.log('Saving ward');
     const ward = [];
     for await (const entry of entries) {
-      entry.name = entry.name.toLowerCase().trim();
+      entry.name = entry.name.trim().toUpperCase();
       const lga = this.lgaService.find(entry.lgaId);
       if (!lga) throw new NotFoundException('Lga not found');
 
       let foundWard = await this.wardModel.findOne({
-        name: entry.name,
+        name: entry.name.trim().toUpperCase(),
         lga: entry.lgaId,
+        code: entry.code,
       });
 
       if (foundWard) throw new ConflictException('Lga already exist');
 
       foundWard = new this.wardModel({
-        name: entry.name,
+        name: entry.name.trim().toUpperCase(),
         lga: entry.lgaId,
+        code: entry.code,
       });
 
       foundWard = await foundWard.save();
@@ -80,66 +83,64 @@ export class WardService {
     return units.map((m) => m.name);
   }
 
-  async pollingUnit(data: StateWardBulkRequest): Promise<PollingUnit[] | null> {
-    this.logger.log('Saving pooling');
+  async pollingUnit(
+    wardId: string,
+    data: PollingUnitRequest,
+  ): Promise<PollingUnit | null> {
+    this.logger.log('Saving polling unit');
+    const ward = await this.wardModel.findOne({ id: wardId });
+    if (!ward) throw new NotFoundException('Ward not found');
 
-    const lga = await this.lgaService.find(data.lgaId);
-    if (!lga) throw new NotFoundException('Lga not found');
+    let foundUnit = await this.pollingUnitModel.findOne({
+      name: data.name.trim().toUpperCase(),
+      ward,
+      code: data.code,
+    });
 
-    for await (const entry of data.wardData) {
-      let ward = await this.wardModel.findOne({
-        name: entry.wardName,
-        lga: data.lgaId,
+    if (foundUnit)
+      throw new ConflictException('Polling unit already exist in ward');
+
+    foundUnit = new this.pollingUnitModel({
+      name: data.name.trim().toUpperCase(),
+      ward,
+      code: data.code,
+    });
+    foundUnit = await foundUnit.save();
+    return foundUnit;
+  }
+
+  async createPollingUnits(
+    wardId: string,
+    data: PollingUnitRequest[],
+  ): Promise<PollingUnit[] | null> {
+    this.logger.log('Saving polling units');
+    const ward = await this.wardModel.findById(wardId);
+    if (!ward) throw new NotFoundException('Ward not found');
+    const notExistUnits = [];
+    for await (const unit of data) {
+      const foundUnit = await this.pollingUnitModel.findOne({
+        name: unit.name.trim().toUpperCase(),
+        ward,
+        code: unit.code,
       });
 
-      if (!ward) {
-        ward = new this.wardModel({
-          name: entry.wardName,
-          lga: data.lgaId,
-        });
+      if (foundUnit)
+        throw new ConflictException('Polling unit already exist in ward');
 
-        ward = await ward.save();
-      }
-
-      if (ward) {
-        this.logger.log('Ward found ' + ward.name);
-        const collections = entry.collection;
-        for await (const entry of collections) {
-          let pollingUnit = await this.pollingUnitModel.findOne({
-            name: entry.name,
-            wardName: ward.name,
-          });
-          if (!pollingUnit) {
-            pollingUnit = new this.pollingUnitModel({
-              name: entry.name.toLowerCase(),
-              code: entry.code.toLowerCase(),
-              ward: ward,
-            });
-            pollingUnit = await pollingUnit.save();
-            // if (pollingUnit) {
-            //   const collection = await this.findCollection({
-            //     pollingUnit,
-            //   });
-            //   if (!collection) {
-            //     const collect = {
-            //       pollingUnit,
-            //       data: entry.data,
-            //       voters: entry.voters,
-            //     };
-            //     await this.collect(collect);
-            //     this.logger.log('PollingUnit saved ' + pollingUnit.name);
-            //   }
-            // }
-          }
-        }
-      }
+      notExistUnits.push(
+        new this.pollingUnitModel({
+          name: unit.name.trim().toUpperCase(),
+          ward,
+          code: unit.code,
+        }),
+      );
     }
 
-    return await this.pollingUnitModel.find();
+    return await this.pollingUnitModel.insertMany(notExistUnits);
   }
 
   async pollingUnitsByWardName(wardId: string): Promise<PollingUnit[] | null> {
-    this.logger.log('Fetching pooling unit');
+    this.logger.log('Fetching polling unit');
 
     const ward = await this.wardModel.findById(wardId);
     if (!ward) throw new NotFoundException('Ward not found');
@@ -150,7 +151,7 @@ export class WardService {
   }
 
   async pollingUnits(lgaId: string): Promise<PollingUnitResponse[] | null> {
-    this.logger.log('Fetching pooling unit');
+    this.logger.log('Fetching polling unit');
     const lga = await this.lgaService.find(lgaId);
     if (!lga) throw new NotFoundException('Lga not found');
     const wards = await this.wardModel.find({ lga: lga });
@@ -169,14 +170,14 @@ export class WardService {
   }
 
   async pollingUnitByName(name: string): Promise<PollingUnit | null> {
-    this.logger.log('Fetching pooling unit');
+    this.logger.log('Fetching polling unit');
     return await this.pollingUnitModel.findOne({
       name: name.toLowerCase(),
     });
   }
 
   async pollingUnitByCode(code: string): Promise<PollingUnit | null> {
-    this.logger.log('Fetching pooling unit');
+    this.logger.log('Fetching polling unit');
 
     return await this.pollingUnitModel.findOne({
       code: code.toLowerCase,
