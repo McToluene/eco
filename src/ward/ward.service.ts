@@ -82,6 +82,12 @@ export class WardService {
     return await this.wardModel.find();
   }
 
+  async getByLga(lgaId: string): Promise<Ward[]> {
+    const lga = this.lgaService.find(lgaId);
+    if (!lga) throw new NotFoundException('Lga not found');
+    return await this.wardModel.find({ lga });
+  }
+
   async pollingUnit(
     wardId: string,
     data: PollingUnitRequest,

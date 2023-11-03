@@ -55,6 +55,16 @@ export class WardController {
     };
   }
 
+  @Get('/:lgaId')
+  async getByLga(@Param('lgaId') lgaId: string): Promise<BaseResponse<Ward[]>> {
+    const wardData = await this.wardService.getByLga(lgaId);
+    return {
+      message: 'Ward fetched successfully!',
+      data: wardData,
+      status: HttpStatus.OK,
+    };
+  }
+
   @Post(':id/polling-unit')
   async addPoolingUnit(
     @Body() units: PollingUnitRequest,

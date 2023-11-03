@@ -8,7 +8,7 @@ import { AuthController } from './auth.controller';
 import { UserModule } from 'src/user/user.module';
 
 import { PassportModule } from '@nestjs/passport';
-import { LgaModule } from 'src/lga/lga.module';
+import { StateModule } from 'src/state/state.module';
 
 @Module({
   imports: [
@@ -23,7 +23,7 @@ import { LgaModule } from 'src/lga/lga.module';
       inject: [ConfigService],
     }),
     UserModule,
-    LgaModule,
+    StateModule,
   ],
   providers: [AuthService, JwtStrategy, LocalStrategy],
   controllers: [AuthController],

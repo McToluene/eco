@@ -3,5 +3,5 @@ import { LoginRequest } from './login.request';
 
 export default class RegisterRequest extends LoginRequest {
   @IsNotEmpty()
-  lgaId: string;
+  stateId: string;
 }

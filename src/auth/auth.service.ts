@@ -14,7 +14,7 @@ import AuthResponse from './dtos/response/auth.response';
 import TokenResponse from './dtos/response/token.response';
 import RegisterRequest from './dtos/request/register.request';
 import { UserType } from 'src/user/enum/userType.enum';
-import { LgaService } from 'src/lga/lga.service';
+import { StateService } from 'src/state/state.service';
 
 @Injectable()
 export class AuthService {
@@ -24,7 +24,7 @@ export class AuthService {
     private userService: UserService,
     private jwtService: JwtService,
     private configService: ConfigService,
-    private lgaService: LgaService,
+    private stateStateService: StateService,
   ) {}
 
   async validateUser(userName: string, password: string): Promise<User> {
@@ -38,7 +38,7 @@ export class AuthService {
   login(user: User): AuthResponse {
     const payload = {
       username: user.userName,
-      lgaId: user.lga.id,
+      stateId: user.state._id,
     };
 
     const token: TokenResponse = {
@@ -67,14 +67,14 @@ export class AuthService {
     let user = await this.userService.findOne(data.username);
     if (user) throw new ConflictException(`User already exist!`);
 
-    const lga = await this.lgaService.find(data.lgaId);
-    if (!lga) throw new NotFoundException('Lga not found');
+    const state = await this.stateStateService.find(data.stateId);
+    if (!state) throw new NotFoundException('State not found');
 
     data.password = await this.hashPassword(data.password);
     const newUser: User = {
       userName: data.username,
       password: data.password,
-      lga: lga,
+      state,
       userType: UserType.AGENT,
     };
     user = await this.userService.create(newUser);
