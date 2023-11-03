@@ -1,4 +1,4 @@
-import { Body, Controller, HttpStatus, Post, Get } from '@nestjs/common';
+import { Body, Controller, HttpStatus, Post, Get, Param } from '@nestjs/common';
 
 import { BaseResponse } from 'src/dtos/response/base.response';
 import LgaRequestDto from './dtos/request/lga.request.dto';
@@ -34,6 +34,18 @@ export class LgaController {
   @Get('/')
   async getData(): Promise<BaseResponse<Lga[]>> {
     const data = await this.lgaService.get();
+    return {
+      message: 'Lga fetched successfully!',
+      data: data,
+      status: HttpStatus.OK,
+    };
+  }
+
+  @Get('/:stateId')
+  async getDataByState(
+    @Param('stateId') stateId: string,
+  ): Promise<BaseResponse<Lga[]>> {
+    const data = await this.lgaService.getByState(stateId);
     return {
       message: 'Lga fetched successfully!',
       data: data,

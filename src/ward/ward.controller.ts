@@ -46,10 +46,10 @@ export class WardController {
   }
 
   @Get('/')
-  async get(): Promise<BaseResponse<string[]>> {
+  async get(): Promise<BaseResponse<Ward[]>> {
     const wardData = await this.wardService.getWard();
     return {
-      message: 'Entry fetched successfully!',
+      message: 'Ward fetched successfully!',
       data: wardData,
       status: HttpStatus.OK,
     };
@@ -65,6 +65,18 @@ export class WardController {
       message: 'Entry saved successfully!',
       data: wardData,
       status: HttpStatus.CREATED,
+    };
+  }
+
+  @Get(':id/polling-unit')
+  async getPoolingUnit(
+    @Param() id: string,
+  ): Promise<BaseResponse<PollingUnit[]>> {
+    const wardData = await this.wardService.getPoolingUnit(id);
+    return {
+      message: 'Entry fetched successfully!',
+      data: wardData,
+      status: HttpStatus.OK,
     };
   }
 

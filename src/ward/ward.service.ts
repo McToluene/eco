@@ -78,9 +78,8 @@ export class WardService {
     return ward;
   }
 
-  async getWard(): Promise<string[]> {
-    const units = await this.pollingUnitModel.find();
-    return units.map((m) => m.name);
+  async getWard(): Promise<Ward[]> {
+    return await this.wardModel.find();
   }
 
   async pollingUnit(
@@ -107,6 +106,12 @@ export class WardService {
     });
     foundUnit = await foundUnit.save();
     return foundUnit;
+  }
+
+  async getPoolingUnit(id: string): Promise<PollingUnit[]> {
+    const ward = await this.wardModel.findOne({ id });
+    if (!ward) throw new NotFoundException('Ward not found');
+    return await this.pollingUnitModel.find({ ward });
   }
 
   async createPollingUnits(

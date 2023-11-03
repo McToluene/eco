@@ -64,6 +64,14 @@ export class LgaService {
     return await this.lgaModel.find();
   }
 
+  async getByState(stateId: string): Promise<Lga[] | null> {
+    this.logger.log('Fetching lgas');
+    const state = await this.stateService.find(stateId);
+    if (!state) throw new NotFoundException('State not found');
+
+    return await this.lgaModel.find({ state });
+  }
+
   async find(id: string): Promise<Lga | null> {
     this.logger.log('Finding Lga');
     return await this.lgaModel.findById(id);
