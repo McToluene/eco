@@ -44,13 +44,17 @@ export class RegisteredController {
     };
   }
 
-  @Post('/upload/picture')
+  @Post('/upload/picture/:pollingUnitId')
   @UseInterceptors(FilesInterceptor('files'))
   async uploadFile(
     @UploadedFiles() files: Array<Express.Multer.File>,
+    @Param('pollingUnitId') pollingUnitId: string,
   ): Promise<BaseResponse<void>> {
     if (!files) throw new BadRequestException('Please add files to upload');
-    const response = await this.registeredService.uploadMultipleFiles(files);
+    const response = await this.registeredService.uploadMultipleFiles(
+      files,
+      pollingUnitId,
+    );
     return {
       message: 'Registered voters picture uploaded fetched successfully!',
       data: response,

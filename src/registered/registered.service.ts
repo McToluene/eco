@@ -81,8 +81,16 @@ export class RegisteredService {
     }
   }
 
-  async uploadMultipleFiles(files: Express.Multer.File[]): Promise<void> {
+  async uploadMultipleFiles(
+    files: Express.Multer.File[],
+    pollingUnitId: string,
+  ): Promise<void> {
     const uploadedFiles = [];
+    const pollingUnit = await this.pollingUnitModel
+      .findById(pollingUnitId)
+      .exec();
+    if (!pollingUnit) throw new NotFoundException('Polling Unit not found!');
+
     for (const file of files) {
       if (file.originalname.includes('-')) {
         const splitedName = file.originalname.split('-');
@@ -98,6 +106,7 @@ export class RegisteredService {
       await this.registeredModel.findOneAndUpdate(
         {
           refIndex: up.refIndex,
+          pollingUnit,
         },
         { imageUrl: up.result.url },
       );
