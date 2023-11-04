@@ -20,6 +20,7 @@ import { Request } from 'express';
 import CurrentUser from '../auth/dtos/request/current.user';
 import PollingUnitResponse from './dtos/response/pollingUnit.response';
 import PollingUnitRequest from 'src/dtos/request/pollingunit.request';
+import PollingResponse from './dtos/response/polling.response';
 
 @Controller('ward')
 export class WardController {
@@ -79,12 +80,24 @@ export class WardController {
   }
 
   @Get(':id/polling-unit')
-  async getPoolingUnit(
+  async getPollingUnit(
     @Param() id: string,
   ): Promise<BaseResponse<PollingUnit[]>> {
-    const wardData = await this.wardService.getPoolingUnit(id);
+    const wardData = await this.wardService.getPollingUnit(id);
     return {
       message: 'Entry fetched successfully!',
+      data: wardData,
+      status: HttpStatus.OK,
+    };
+  }
+
+  @Get('/state/:stateId/polling-unit')
+  async getPollingUnitByState(
+    @Param('stateId') stateId: string,
+  ): Promise<BaseResponse<PollingResponse[]>> {
+    const wardData = await this.wardService.getPollingUnitByState(stateId);
+    return {
+      message: 'Polling unit fetched successfully!',
       data: wardData,
       status: HttpStatus.OK,
     };

@@ -27,6 +27,7 @@ export class LgaService {
     let foundLga = await this.lgaModel.findOne({
       name: lga.name.trim().toUpperCase(),
       state: lga.stateId,
+      code: lga.code,
     });
 
     if (foundLga) throw new ConflictException('Lga already exist in state');
@@ -34,6 +35,7 @@ export class LgaService {
     foundLga = new this.lgaModel({
       state: lga.stateId,
       name: lga.name.trim().toUpperCase(),
+      code: lga.code,
     });
     foundLga = await foundLga.save();
     return foundLga;
@@ -48,6 +50,7 @@ export class LgaService {
         const foundLga = await this.lgaModel.findOne({
           name: lga.name.trim().toUpperCase(),
           state: lga.stateId,
+          code: lga.code,
         });
 
         if (!foundLga) {

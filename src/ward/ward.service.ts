@@ -12,6 +12,8 @@ import { PollingUnit, PollingUnitDocument } from './schemas/polling.schema';
 import { LgaService } from '../lga/lga.service';
 import PollingUnitResponse from './dtos/response/pollingUnit.response';
 import PollingUnitRequest from 'src/dtos/request/pollingunit.request';
+import { State } from 'src/state/schemas/state.schema';
+import PollingResponse from './dtos/response/polling.response';
 
 @Injectable()
 export class WardService {
@@ -22,6 +24,8 @@ export class WardService {
     private wardModel: Model<WardDocument>,
     @InjectModel(PollingUnit.name)
     private pollingUnitModel: Model<PollingUnitDocument>,
+    @InjectModel(State.name)
+    private stateModel: Model<State>,
 
     private readonly lgaService: LgaService,
   ) {}
@@ -88,6 +92,30 @@ export class WardService {
     return await this.wardModel.find({ lga });
   }
 
+  async getPollingUnitByState(stateId: string): Promise<PollingResponse[]> {
+    const state = await this.stateModel.findOne({ _id: stateId });
+    if (!state) throw new NotFoundException('State not found');
+
+    const lga = await this.lgaService.getByState(state._id);
+    if (!lga) throw new NotFoundException('Lga not found');
+
+    const pu = [];
+    for await (const lg of lga) {
+      const wards = await this.wardModel.find({ lg });
+      if (!wards) throw new NotFoundException('Wards not found');
+      for await (const ward of wards) {
+        const units = await this.pollingUnitModel.find({ ward });
+        for await (const unit of units) {
+          pu.push({
+            name: `${state.code}-${lg.code}-${ward.code}-${unit.code} ${unit.name}`,
+            id: unit._id,
+          });
+        }
+      }
+    }
+    return pu;
+  }
+
   async pollingUnit(
     wardId: string,
     data: PollingUnitRequest,
@@ -114,7 +142,7 @@ export class WardService {
     return foundUnit;
   }
 
-  async getPoolingUnit(id: string): Promise<PollingUnit[]> {
+  async getPollingUnit(id: string): Promise<PollingUnit[]> {
     const ward = await this.wardModel.findOne({ id });
     if (!ward) throw new NotFoundException('Ward not found');
     return await this.pollingUnitModel.find({ ward });

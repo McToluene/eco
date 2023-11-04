@@ -1,10 +1,20 @@
-import { Body, Controller, HttpStatus, Post, Get, Param } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpStatus,
+  Post,
+  Get,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 
 import { BaseResponse } from 'src/dtos/response/base.response';
 import LgaRequestDto from './dtos/request/lga.request.dto';
 import { Lga } from './schemas/lga.schema';
 import { LgaService } from './lga.service';
+import { JwtAuthGuard } from 'src/auth/guard/jwt-auth.guard';
 
+// @UseGuards(JwtAuthGuard)
 @Controller('lga')
 export class LgaController {
   constructor(private readonly lgaService: LgaService) {}

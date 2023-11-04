@@ -1,10 +1,19 @@
-import { Body, Controller, HttpStatus, Post, Get } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpStatus,
+  Post,
+  Get,
+  UseGuards,
+} from '@nestjs/common';
 import { StateService } from './state.service';
 
 import { BaseResponse } from 'src/dtos/response/base.response';
 import { State } from './schemas/state.schema';
 import StateRequestDto from './dtos/request/state.request.dto';
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 
+// @UseGuards(JwtAuthGuard)
 @Controller('state')
 export class StateController {
   constructor(private readonly stateService: StateService) {}
