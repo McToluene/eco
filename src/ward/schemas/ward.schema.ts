@@ -6,6 +6,8 @@ export type WardDocument = HydratedDocument<Ward>;
 
 @Schema()
 export class Ward {
+  _id: string;
+
   @Prop()
   name: string;
 

@@ -101,7 +101,7 @@ export class WardService {
 
     const pu = [];
     for await (const lg of lga) {
-      const wards = await this.wardModel.find({ lg });
+      const wards = await this.wardModel.find({ lga: lg });
       if (!wards) throw new NotFoundException('Wards not found');
       for await (const ward of wards) {
         const units = await this.pollingUnitModel.find({ ward });
@@ -121,7 +121,7 @@ export class WardService {
     data: PollingUnitRequest,
   ): Promise<PollingUnit | null> {
     this.logger.log('Saving polling unit');
-    const ward = await this.wardModel.findOne({ id: wardId });
+    const ward = await this.wardModel.findById(wardId);
     if (!ward) throw new NotFoundException('Ward not found');
 
     let foundUnit = await this.pollingUnitModel.findOne({
@@ -143,7 +143,7 @@ export class WardService {
   }
 
   async getPollingUnit(id: string): Promise<PollingUnit[]> {
-    const ward = await this.wardModel.findOne({ id });
+    const ward = await this.wardModel.findOne({ _id: id });
     if (!ward) throw new NotFoundException('Ward not found');
     return await this.pollingUnitModel.find({ ward });
   }

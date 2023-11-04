@@ -69,7 +69,7 @@ export class WardController {
   @Post(':id/polling-unit')
   async addPoolingUnit(
     @Body() units: PollingUnitRequest,
-    @Param() id: string,
+    @Param('id') id: string,
   ): Promise<BaseResponse<PollingUnit>> {
     const wardData = await this.wardService.pollingUnit(id, units);
     return {
