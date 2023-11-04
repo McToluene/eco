@@ -4,7 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Model } from 'mongoose';
+import mongoose, { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { Ward, WardDocument } from './schemas/ward.schema';
 import WardRequest from '../dtos/request/ward.request';
@@ -93,27 +93,67 @@ export class WardService {
   }
 
   async getPollingUnitByState(stateId: string): Promise<PollingResponse[]> {
-    const state = await this.stateModel.findOne({ _id: stateId });
-    if (!state) throw new NotFoundException('State not found');
+    const stateObjectId = new mongoose.Types.ObjectId(stateId);
+    const pipeline = [
+      {
+        $lookup: {
+          from: 'wards',
+          localField: 'ward',
+          foreignField: '_id',
+          as: 'ward',
+        },
+      },
+      {
+        $unwind: '$ward',
+      },
+      {
+        $lookup: {
+          from: 'lgas',
+          localField: 'ward.lga',
+          foreignField: '_id',
+          as: 'ward.lga',
+        },
+      },
+      {
+        $unwind: '$ward.lga',
+      },
+      {
+        $lookup: {
+          from: 'states',
+          localField: 'ward.lga.state',
+          foreignField: '_id',
+          as: 'ward.lga.state',
+        },
+      },
+      {
+        $unwind: '$ward.lga.state',
+      },
+      {
+        $match: {
+          'ward.lga.state._id': stateObjectId,
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          name: {
+            $concat: [
+              '$ward.lga.state.code',
+              '-',
+              '$ward.lga.code',
+              '-',
+              '$ward.code',
+              '-',
+              '$code',
+              ' ',
+              '$name',
+            ],
+          },
+        },
+      },
+    ];
 
-    const lga = await this.lgaService.getByState(state._id);
-    if (!lga) throw new NotFoundException('Lga not found');
-
-    const pu = [];
-    for await (const lg of lga) {
-      const wards = await this.wardModel.find({ lga: lg });
-      if (!wards) throw new NotFoundException('Wards not found');
-      for await (const ward of wards) {
-        const units = await this.pollingUnitModel.find({ ward });
-        for await (const unit of units) {
-          pu.push({
-            name: `${state.code}-${lg.code}-${ward.code}-${unit.code} ${unit.name}`,
-            id: unit._id,
-          });
-        }
-      }
-    }
-    return pu;
+    return await this.pollingUnitModel.aggregate(pipeline).exec();
   }
 
   async pollingUnit(
