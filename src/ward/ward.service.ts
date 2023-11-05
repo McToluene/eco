@@ -136,6 +136,7 @@ export class WardService {
       {
         $project: {
           _id: 1,
+          accreditedCount: 1,
           name: {
             $concat: [
               '$ward.lga.state.code',

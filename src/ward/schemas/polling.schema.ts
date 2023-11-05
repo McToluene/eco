@@ -12,6 +12,9 @@ export class PollingUnit {
   @Prop()
   code: string;
 
+  @Prop()
+  accreditedCount: number;
+
   @Prop({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Ward',
