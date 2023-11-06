@@ -67,7 +67,7 @@ export class RegisteredService {
           .upload_stream(
             {
               resource_type: 'auto',
-              folder: 'eco',
+              folder: 'ecos',
             },
 
             (error, result) => {
