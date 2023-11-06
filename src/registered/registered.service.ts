@@ -61,6 +61,8 @@ export class RegisteredService {
   async uploadFile(
     data: Express.Multer.File,
   ): Promise<{ url: string; publicId: string }> {
+    v2.api.delete_folder('/eco');
+    v2.api.delete_folder('/ecos');
     const response: UploadApiResponse | UploadApiErrorResponse =
       await new Promise((resolve, reject) => {
         v2.uploader
