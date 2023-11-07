@@ -198,10 +198,8 @@ export class WardService {
     const notExistUnits = [];
     for await (const unit of data) {
       const foundUnit = await this.pollingUnitModel.findOne({
-        name: unit.name.trim().toUpperCase(),
         ward,
         code: unit.code,
-        registeredCount: unit.registeredCount,
       });
 
       if (foundUnit)

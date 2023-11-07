@@ -1,4 +1,4 @@
-import { IsString } from 'class-validator';
+import { IsNumber, IsString } from 'class-validator';
 
 export default class PollingUnitRequest {
   @IsString()
@@ -7,6 +7,6 @@ export default class PollingUnitRequest {
   @IsString()
   code: string;
 
-  @IsString()
-  registeredCount: string;
+  @IsNumber()
+  registeredCount: number;
 }
