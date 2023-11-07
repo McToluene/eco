@@ -55,7 +55,10 @@ export class RegisteredService {
     const pu = await this.pollingUnitModel.findById(pollingUnitId).exec();
     if (!pu) throw new NotFoundException('Polling Unit not found!');
 
-    return await this.registeredModel.find({ pollingUnit: pu });
+    return await this.registeredModel
+      .find({ pollingUnit: pu })
+      .sort({ refIndex: 1 })
+      .exec();
   }
 
   async uploadFile(
