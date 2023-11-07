@@ -6,4 +6,7 @@ export default class PollingUnitRequest {
 
   @IsString()
   code: string;
+
+  @IsString()
+  registeredCount: string;
 }

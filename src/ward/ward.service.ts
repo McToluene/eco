@@ -137,6 +137,7 @@ export class WardService {
         $project: {
           _id: 1,
           accreditedCount: 1,
+          registeredCount: 1,
           name: {
             $concat: [
               '$ward.lga.state.code',
@@ -166,7 +167,6 @@ export class WardService {
     if (!ward) throw new NotFoundException('Ward not found');
 
     let foundUnit = await this.pollingUnitModel.findOne({
-      name: data.name.trim().toUpperCase(),
       ward,
       code: data.code,
     });
@@ -175,7 +175,6 @@ export class WardService {
       throw new ConflictException('Polling unit already exist in ward');
 
     foundUnit = new this.pollingUnitModel({
-      name: data.name.trim().toUpperCase(),
       ward,
       code: data.code,
     });
@@ -202,6 +201,7 @@ export class WardService {
         name: unit.name.trim().toUpperCase(),
         ward,
         code: unit.code,
+        registeredCount: unit.registeredCount,
       });
 
       if (foundUnit)
@@ -212,6 +212,7 @@ export class WardService {
           name: unit.name.trim().toUpperCase(),
           ward,
           code: unit.code,
+          registeredCount: unit.registeredCount,
         }),
       );
     }
