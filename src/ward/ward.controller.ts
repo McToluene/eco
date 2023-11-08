@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -6,7 +7,9 @@ import {
   Param,
   Post,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { BaseResponse } from '../dtos/response/base.response';
 
@@ -21,6 +24,7 @@ import CurrentUser from '../auth/dtos/request/current.user';
 import PollingUnitResponse from './dtos/response/pollingUnit.response';
 import PollingUnitRequest from 'src/dtos/request/pollingunit.request';
 import PollingResponse from './dtos/response/polling.response';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('ward')
 export class WardController {
@@ -34,6 +38,13 @@ export class WardController {
       data: wardData,
       status: HttpStatus.CREATED,
     };
+  }
+
+  @Post('upload/polling-unit')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadExcel(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No file uploaded.');
+    await this.wardService.uploadPollingUnit(file);
   }
 
   @Post('/list')
@@ -60,7 +71,7 @@ export class WardController {
   async getByLga(@Param('lgaId') lgaId: string): Promise<BaseResponse<Ward[]>> {
     const wardData = await this.wardService.getByLga(lgaId);
     return {
-      message: 'Ward fetched successfully!',
+      message: 'Wards fetched successfully!',
       data: wardData,
       status: HttpStatus.OK,
     };

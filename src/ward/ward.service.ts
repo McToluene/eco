@@ -14,6 +14,7 @@ import PollingUnitResponse from './dtos/response/pollingUnit.response';
 import PollingUnitRequest from 'src/dtos/request/pollingunit.request';
 import { State } from 'src/state/schemas/state.schema';
 import PollingResponse from './dtos/response/polling.response';
+import { PollingUnitHelper } from './helpers/polling-unit.helper';
 
 @Injectable()
 export class WardService {
@@ -68,7 +69,7 @@ export class WardService {
         code: entry.code,
       });
 
-      if (foundWard) throw new ConflictException('Lga already exist');
+      if (foundWard) throw new ConflictException('Ward already exist');
 
       foundWard = new this.wardModel({
         name: entry.name.trim().toUpperCase(),
@@ -83,13 +84,13 @@ export class WardService {
   }
 
   async getWard(): Promise<Ward[]> {
-    return await this.wardModel.find();
+    return await this.wardModel.find().sort({ code: 1 });
   }
 
   async getByLga(lgaId: string): Promise<Ward[]> {
-    const lga = this.lgaService.find(lgaId);
+    const lga = await this.lgaService.find(lgaId);
     if (!lga) throw new NotFoundException('Lga not found');
-    return await this.wardModel.find({ lga });
+    return await this.wardModel.find({ lga }).sort({ code: 1 });
   }
 
   async getPollingUnitByState(stateId: string): Promise<PollingResponse[]> {
@@ -273,4 +274,52 @@ export class WardService {
       },
     });
   }
+
+  async uploadPollingUnit(file: Express.Multer.File) {
+    const data = PollingUnitHelper.processFile(file);
+
+    for (const d of data) {
+      const ward = await this.wardModel.findOne({
+        name: d['Registration Area'],
+      });
+
+      if (ward) {
+        const puCode = getPuCode(d['Delimitation']);
+        let foundUnit = await this.pollingUnitModel.findOne({
+          ward,
+          code: puCode,
+        });
+        if (!foundUnit) {
+          const accreditedCount = calculateAccreditedCount(
+            d['Percentage of Collected PVCs to Registered Voters'],
+            d['No of Collected PVCs'],
+          );
+
+          const registeredCount = d['No of Registered Voters'];
+          foundUnit = new this.pollingUnitModel({
+            ward,
+            code: puCode,
+            name: d['Polling Unit'],
+            accreditedCount,
+            registeredCount,
+          });
+          foundUnit = await foundUnit.save();
+        }
+      }
+    }
+  }
+}
+
+function calculateAccreditedCount(
+  percentage: number,
+  collectedPvc: number,
+): number {
+  let result = collectedPvc;
+  if (percentage !== 0) result = Math.ceil(collectedPvc * percentage);
+  return result;
+}
+
+function getPuCode(delimitation: string): string {
+  const delimitationArray = delimitation.split('-');
+  return delimitationArray[3];
 }

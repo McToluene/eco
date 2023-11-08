@@ -33,7 +33,6 @@ export class RegisteredService {
     const pu = await this.pollingUnitModel.findById(pollingUnitId).exec();
     if (!pu) throw new NotFoundException('Polling Unit not found!');
     const data = RegisteredHelper.processFile(file);
-    const accreditedCount = Math.ceil(data.length * (70 / 100));
 
     const registeredVoters: Registered[] = data.map((data, i) => {
       const voter = new Registered();
@@ -45,9 +44,7 @@ export class RegisteredService {
       voter.refIndex = i + 1;
       return voter;
     });
-    await this.pollingUnitModel
-      .findByIdAndUpdate({ _id: pollingUnitId }, { accreditedCount })
-      .exec();
+
     this.registeredModel.insertMany(registeredVoters);
   }
 
