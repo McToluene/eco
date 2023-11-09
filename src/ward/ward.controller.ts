@@ -92,7 +92,7 @@ export class WardController {
 
   @Get(':id/polling-unit')
   async getPollingUnit(
-    @Param() id: string,
+    @Param('id') id: string,
   ): Promise<BaseResponse<PollingUnit[]>> {
     const wardData = await this.wardService.getPollingUnit(id);
     return {
