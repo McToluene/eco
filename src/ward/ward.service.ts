@@ -282,7 +282,6 @@ export class WardService {
       const ward = await this.wardModel.findOne({
         name: d['Registration Area'],
       });
-
       if (ward) {
         const puCode = getPuCode(d['Delimitation']);
         let foundUnit = await this.pollingUnitModel.findOne({

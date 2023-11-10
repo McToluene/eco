@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Controller,
+  Delete,
   Get,
   HttpStatus,
   Param,
@@ -31,15 +32,27 @@ export class RegisteredController {
   }
 
   @Get('/:pollingUnitId')
-  async createList(
+  async getReisgteredList(
     @Param('pollingUnitId') pollingUnitId: string,
   ): Promise<BaseResponse<Registered[]>> {
-    const lgas = await this.registeredService.findRegisteredVoters(
+    const registered = await this.registeredService.findRegisteredVoters(
       pollingUnitId,
     );
     return {
       message: 'Registered voters fetched successfully!',
-      data: lgas,
+      data: registered,
+      status: HttpStatus.OK,
+    };
+  }
+
+  @Delete('/:pollingUnitId')
+  async deleteRegisteredList(
+    @Param('pollingUnitId') pollingUnitId: string,
+  ): Promise<BaseResponse<void>> {
+    const empty = await this.registeredService.deleteRegistered(pollingUnitId);
+    return {
+      message: 'Registered voters deleted successfully!',
+      data: empty,
       status: HttpStatus.OK,
     };
   }

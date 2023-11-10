@@ -35,10 +35,8 @@ export class RegisteredService {
     const fileExtension = file.originalname.split('.').pop();
     let data: any[];
     if (fileExtension === 'xlsx') data = RegisteredHelper.processFile(file);
-
     if (fileExtension === 'csv')
       data = await RegisteredHelper.processFileCsv(file);
-
     const registeredVoters: Registered[] = data.map((data, i) => {
       const voter = new Registered();
       voter.name = data['NAME'];
@@ -61,6 +59,13 @@ export class RegisteredService {
       .find({ pollingUnit: pu })
       .sort({ refIndex: 1 })
       .exec();
+  }
+
+  async deleteRegistered(pollingUnitId: string): Promise<void> {
+    const pu = await this.pollingUnitModel.findById(pollingUnitId).exec();
+    if (!pu) throw new NotFoundException('Polling Unit not found!');
+
+    await this.registeredModel.deleteMany({ pollingUnit: pu }).exec();
   }
 
   async uploadFile(
