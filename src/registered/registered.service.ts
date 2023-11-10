@@ -111,6 +111,19 @@ export class RegisteredService {
           const result = await this.uploadFile(file);
           uploadedFiles.push({ refIndex: splitedNumber[0], result });
         }
+      } else {
+        const splitedNumber = file.originalname.split('.');
+        const v = await this.registeredModel.findOne({
+          refIndex: splitedNumber[0],
+          pollingUnit,
+        });
+        if (v) {
+          const result = await this.uploadFile(file);
+          uploadedFiles.push({
+            refIndex: splitedNumber[0],
+            result,
+          });
+        }
       }
     }
 
