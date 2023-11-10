@@ -117,6 +117,7 @@ export class RegisteredService {
           refIndex: splitedNumber[0],
           pollingUnit,
         });
+
         if (v) {
           const result = await this.uploadFile(file);
           uploadedFiles.push({
