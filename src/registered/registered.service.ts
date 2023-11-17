@@ -37,6 +37,7 @@ export class RegisteredService {
     if (fileExtension === 'xlsx') data = RegisteredHelper.processFile(file);
     if (fileExtension === 'csv')
       data = await RegisteredHelper.processFileCsv(file);
+
     const registeredVoters: Registered[] = data.map((data, i) => {
       const voter = new Registered();
       voter.name = data['NAME'];

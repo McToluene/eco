@@ -47,6 +47,13 @@ export class WardController {
     await this.wardService.uploadPollingUnit(file);
   }
 
+  @Post('update/upload/polling-unit')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadUpdateExcel(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No file uploaded.');
+    await this.wardService.uploadUpdatePollingUnit(file);
+  }
+
   @Post('/list')
   async createList(@Body() ward: WardRequest[]): Promise<BaseResponse<Ward[]>> {
     const wardData = await this.wardService.createList(ward);

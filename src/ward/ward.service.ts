@@ -212,6 +212,7 @@ export class WardService {
           ward,
           code: unit.code,
           registeredCount: unit.registeredCount,
+          accreditedCount: unit.accreditedCount,
         }),
       );
     }
@@ -302,6 +303,36 @@ export class WardService {
             accreditedCount,
             registeredCount,
           });
+          foundUnit = await foundUnit.save();
+        }
+      }
+    }
+  }
+
+  async uploadUpdatePollingUnit(file: Express.Multer.File) {
+    const data = PollingUnitHelper.processFile(file);
+
+    for (const d of data) {
+      const ward = await this.wardModel.findOne({
+        name: d['Registration Area'],
+      });
+
+      if (ward) {
+        const puCode = getPuCode(d['Delimitation']);
+        let foundUnit = await this.pollingUnitModel.findOne({
+          ward,
+          code: puCode,
+        });
+        if (foundUnit) {
+          const accreditedCount = calculateAccreditedCount(
+            90,
+            d['No of Collected PVCs'],
+          );
+          await this.pollingUnitModel.findOneAndUpdate(
+            { code: puCode },
+            { accreditedCount },
+          );
+
           foundUnit = await foundUnit.save();
         }
       }

@@ -9,4 +9,7 @@ export default class PollingUnitRequest {
 
   @IsNumber()
   registeredCount: number;
+
+  @IsNumber()
+  accreditedCount: number;
 }
