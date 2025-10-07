@@ -8,6 +8,7 @@ import {
   Post,
   UploadedFile,
   UploadedFiles,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
@@ -16,10 +17,14 @@ import { RegisteredService } from './registered.service';
 import { Express } from 'express';
 import { BaseResponse } from '../dtos/response/base.response';
 import { Registered } from './schemas/registered.schema';
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
+import { PollingUnitsGuard } from '../user/guards/polling-units.guard';
+import { RequirePollingUnits } from '../user/decorators/roles.decorator';
 
 @Controller('registered')
+@UseGuards(JwtAuthGuard, PollingUnitsGuard)
 export class RegisteredController {
-  constructor(private readonly registeredService: RegisteredService) {}
+  constructor(private readonly registeredService: RegisteredService) { }
 
   @Post('/:pollingUnitId')
   @UseInterceptors(FileInterceptor('file'))
@@ -32,6 +37,7 @@ export class RegisteredController {
   }
 
   @Get('/:pollingUnitId')
+  @RequirePollingUnits()
   async getReisgteredList(
     @Param('pollingUnitId') pollingUnitId: string,
   ): Promise<BaseResponse<Registered[]>> {

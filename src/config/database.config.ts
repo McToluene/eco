@@ -12,6 +12,10 @@ export class DatabaseConfig {
         try {
             // User indexes
             await this.connection.collection('users').createIndex({ userName: 1 }, { unique: true });
+            await this.connection.collection('users').createIndex({ userType: 1 });
+            await this.connection.collection('users').createIndex({ state: 1 });
+            await this.connection.collection('users').createIndex({ assignedPollingUnits: 1 });
+            await this.connection.collection('users').createIndex({ createdBy: 1 });
 
             // State indexes
             await this.connection.collection('states').createIndex({ name: 1, code: 1 }, { unique: true });

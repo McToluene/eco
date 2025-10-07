@@ -34,7 +34,9 @@ export class AuthService {
   login(user: User): AuthResponse {
     const payload = {
       username: user.userName,
-      stateId: user.state._id,
+      stateId: (user.state as any)._id,
+      userId: (user as any)._id,
+      userType: user.userType,
     };
 
     const token: TokenResponse = {
@@ -74,13 +76,15 @@ export class AuthService {
 
     // Hash password and create user
     const hashedPassword = await this.hashPassword(data.password);
-    const newUser: User = {
+    const newUser: Partial<User> = {
       userName: data.username,
       password: hashedPassword,
       state,
       userType: UserType.AGENT,
+      assignedPollingUnits: [],
+      createdAt: new Date(),
     };
 
-    return await this.userService.create(newUser);
+    return await this.userService.create(newUser as User);
   }
 }
