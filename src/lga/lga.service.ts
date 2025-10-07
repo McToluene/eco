@@ -17,7 +17,7 @@ export class LgaService {
   constructor(
     @InjectModel(Lga.name) private lgaModel: Model<LgaDocument>,
     private readonly stateService: StateService,
-  ) {}
+  ) { }
 
   async create(lga: LgaRequestDto): Promise<Lga | null> {
     this.logger.log('Saving lga');
@@ -78,5 +78,10 @@ export class LgaService {
   async find(id: string): Promise<Lga | null> {
     this.logger.log('Finding Lga');
     return await this.lgaModel.findById(id);
+  }
+
+  async findByIds(ids: string[]): Promise<Lga[]> {
+    this.logger.log('Finding LGAs by IDs');
+    return await this.lgaModel.find({ _id: { $in: ids } });
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Registered } from './schemas/registered.schema';
 import { Model } from 'mongoose';
@@ -6,6 +6,8 @@ import { PollingUnit } from '../ward/schemas/polling.schema';
 import { RegisteredHelper } from './helpers/registered.helper';
 import { UploadApiResponse, UploadApiErrorResponse, v2 } from 'cloudinary';
 import { ConfigService } from '@nestjs/config';
+import { PollingUnitNotFoundException } from '../exceptions/business.exceptions';
+import { StringUtils } from '../utils/common.utils';
 
 @Injectable()
 export class RegisteredService {
@@ -31,8 +33,8 @@ export class RegisteredService {
     file: Express.Multer.File,
   ): Promise<void> {
     const pu = await this.pollingUnitModel.findById(pollingUnitId).exec();
-    if (!pu) throw new NotFoundException('Polling Unit not found!');
-    const fileExtension = file.originalname.split('.').pop();
+    if (!pu) throw new PollingUnitNotFoundException();
+    const fileExtension = StringUtils.getFileExtension(file.originalname);
     let data: any[];
     if (fileExtension === 'xlsx') data = RegisteredHelper.processFile(file);
     if (fileExtension === 'csv')
@@ -49,12 +51,12 @@ export class RegisteredService {
       return voter;
     });
 
-    this.registeredModel.insertMany(registeredVoters);
+    await this.registeredModel.insertMany(registeredVoters);
   }
 
   async findRegisteredVoters(pollingUnitId: string): Promise<Registered[]> {
     const pu = await this.pollingUnitModel.findById(pollingUnitId).exec();
-    if (!pu) throw new NotFoundException('Polling Unit not found!');
+    if (!pu) throw new PollingUnitNotFoundException();
 
     return await this.registeredModel
       .find({ pollingUnit: pu })
@@ -64,7 +66,7 @@ export class RegisteredService {
 
   async deleteRegistered(pollingUnitId: string): Promise<void> {
     const pu = await this.pollingUnitModel.findById(pollingUnitId).exec();
-    if (!pu) throw new NotFoundException('Polling Unit not found!');
+    if (!pu) throw new PollingUnitNotFoundException();
 
     await this.registeredModel.deleteMany({ pollingUnit: pu }).exec();
   }
@@ -102,7 +104,7 @@ export class RegisteredService {
     const pollingUnit = await this.pollingUnitModel
       .findById(pollingUnitId)
       .exec();
-    if (!pollingUnit) throw new NotFoundException('Polling Unit not found!');
+    if (!pollingUnit) throw new PollingUnitNotFoundException();
 
     for (const file of files) {
       if (file.originalname.includes('-')) {

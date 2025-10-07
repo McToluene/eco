@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -17,6 +16,9 @@ import WardRequest from '../dtos/request/ward.request';
 import { WardService } from './ward.service';
 import { Ward } from './schemas/ward.schema';
 import { PollingUnit } from './schemas/polling.schema';
+import { HTTP_MESSAGES } from '../constants/messages.constants';
+import { FileNotUploadedException } from '../exceptions/business.exceptions';
+import { ResponseUtils } from '../utils/common.utils';
 
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { Request } from 'express';
@@ -28,29 +30,37 @@ import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('ward')
 export class WardController {
-  constructor(private readonly wardService: WardService) {}
+  constructor(private readonly wardService: WardService) { }
 
   @Post('/')
   async create(@Body() ward: WardRequest): Promise<BaseResponse<Ward>> {
     const wardData = await this.wardService.create(ward);
-    return {
-      message: 'Entry saved successfully!',
-      data: wardData,
-      status: HttpStatus.CREATED,
-    };
+    return ResponseUtils.createSuccessResponse(
+      HTTP_MESSAGES.SUCCESS.ENTRY_SAVED,
+      wardData,
+      HttpStatus.CREATED
+    );
   }
 
   @Post('upload/polling-unit')
   @UseInterceptors(FileInterceptor('file'))
   async uploadExcel(@UploadedFile() file: Express.Multer.File) {
-    if (!file) throw new BadRequestException('No file uploaded.');
+    if (!file) {
+      throw new FileNotUploadedException();
+    }
+
     await this.wardService.uploadPollingUnit(file);
+
+    return {
+      message: 'Polling units uploaded successfully!',
+      status: 200,
+    };
   }
 
   @Post('update/upload/polling-unit')
   @UseInterceptors(FileInterceptor('file'))
   async uploadUpdateExcel(@UploadedFile() file: Express.Multer.File) {
-    if (!file) throw new BadRequestException('No file uploaded.');
+    if (!file) throw new FileNotUploadedException();
     await this.wardService.uploadUpdatePollingUnit(file);
   }
 

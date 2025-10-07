@@ -1,9 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import mongoose, { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { Ward, WardDocument } from './schemas/ward.schema';
@@ -15,6 +10,13 @@ import PollingUnitRequest from 'src/dtos/request/pollingunit.request';
 import { State } from 'src/state/schemas/state.schema';
 import PollingResponse from './dtos/response/polling.response';
 import { PollingUnitHelper } from './helpers/polling-unit.helper';
+import {
+  LgaNotFoundException,
+  WardAlreadyExistsException,
+  WardNotFoundException,
+  PollingUnitAlreadyExistsException
+} from '../exceptions/business.exceptions';
+import { StringUtils, MathUtils } from '../utils/common.utils';
 
 @Injectable()
 export class WardService {
@@ -29,21 +31,21 @@ export class WardService {
     private stateModel: Model<State>,
 
     private readonly lgaService: LgaService,
-  ) {}
+  ) { }
 
   async create(entry: WardRequest): Promise<Ward | null> {
     this.logger.log('Saving ward');
-    entry.name = entry.name.trim().toUpperCase();
+    entry.name = StringUtils.normalizeString(entry.name);
     const lga = this.lgaService.find(entry.lgaId);
-    if (!lga) throw new NotFoundException('Lga not found');
+    if (!lga) throw new LgaNotFoundException();
 
     let foundWard = await this.wardModel.findOne({
-      name: entry.name.trim().toUpperCase(),
+      name: entry.name,
       lga: entry.lgaId,
       code: entry.code,
     });
 
-    if (foundWard) throw new ConflictException('Lga already exist');
+    if (foundWard) throw new WardAlreadyExistsException();
 
     foundWard = new this.wardModel({
       name: entry.name.trim().toUpperCase(),
@@ -57,30 +59,39 @@ export class WardService {
 
   async createList(entries: WardRequest[]): Promise<Ward[] | null> {
     this.logger.log('Saving ward');
-    const ward = [];
-    for await (const entry of entries) {
-      entry.name = entry.name.trim().toUpperCase();
-      const lga = this.lgaService.find(entry.lgaId);
-      if (!lga) throw new NotFoundException('Lga not found');
 
-      let foundWard = await this.wardModel.findOne({
-        name: entry.name.trim().toUpperCase(),
-        lga: entry.lgaId,
-        code: entry.code,
-      });
+    // Validate all LGAs first in a single query
+    const lgaIds = [...new Set(entries.map(entry => entry.lgaId))];
+    const existingLgas = await this.lgaService.findByIds(lgaIds);
 
-      if (foundWard) throw new ConflictException('Ward already exist');
-
-      foundWard = new this.wardModel({
-        name: entry.name.trim().toUpperCase(),
-        lga: entry.lgaId,
-        code: entry.code,
-      });
-
-      foundWard = await foundWard.save();
-      ward.push(foundWard);
+    if (existingLgas.length !== lgaIds.length) {
+      throw new LgaNotFoundException();
     }
-    return ward;
+
+    // Check for existing wards in bulk
+    const wardQueries = entries.map(entry => ({
+      name: entry.name.trim().toUpperCase(),
+      lga: entry.lgaId,
+      code: entry.code,
+    }));
+
+    const existingWards = await this.wardModel.find({
+      $or: wardQueries
+    });
+
+    if (existingWards.length > 0) {
+      throw new WardAlreadyExistsException();
+    }
+
+    // Prepare data for bulk insert
+    const wardsToCreate = entries.map(entry => ({
+      name: entry.name.trim().toUpperCase(),
+      lga: entry.lgaId,
+      code: entry.code,
+    }));
+
+    // Use insertMany for better performance
+    return await this.wardModel.insertMany(wardsToCreate);
   }
 
   async getWard(): Promise<Ward[]> {
@@ -89,7 +100,7 @@ export class WardService {
 
   async getByLga(lgaId: string): Promise<Ward[]> {
     const lga = await this.lgaService.find(lgaId);
-    if (!lga) throw new NotFoundException('Lga not found');
+    if (!lga) throw new LgaNotFoundException();
     return await this.wardModel.find({ lga }).sort({ code: 1 });
   }
 
@@ -165,7 +176,7 @@ export class WardService {
   ): Promise<PollingUnit | null> {
     this.logger.log('Saving polling unit');
     const ward = await this.wardModel.findById(wardId);
-    if (!ward) throw new NotFoundException('Ward not found');
+    if (!ward) throw new WardNotFoundException();
 
     let foundUnit = await this.pollingUnitModel.findOne({
       ward,
@@ -173,7 +184,7 @@ export class WardService {
     });
 
     if (foundUnit)
-      throw new ConflictException('Polling unit already exist in ward');
+      throw new PollingUnitAlreadyExistsException();
 
     foundUnit = new this.pollingUnitModel({
       ward,
@@ -185,7 +196,7 @@ export class WardService {
 
   async getPollingUnit(id: string): Promise<PollingUnit[]> {
     const ward = await this.wardModel.findOne({ _id: id });
-    if (!ward) throw new NotFoundException('Ward not found');
+    if (!ward) throw new WardNotFoundException();
     return await this.pollingUnitModel.find({ ward });
   }
 
@@ -195,7 +206,7 @@ export class WardService {
   ): Promise<PollingUnit[] | null> {
     this.logger.log('Saving polling units');
     const ward = await this.wardModel.findById(wardId);
-    if (!ward) throw new NotFoundException('Ward not found');
+    if (!ward) throw new WardNotFoundException();
     const notExistUnits = [];
     for await (const unit of data) {
       const foundUnit = await this.pollingUnitModel.findOne({
@@ -204,7 +215,7 @@ export class WardService {
       });
 
       if (foundUnit)
-        throw new ConflictException('Polling unit already exist in ward');
+        throw new PollingUnitAlreadyExistsException();
 
       notExistUnits.push(
         new this.pollingUnitModel({
@@ -224,7 +235,7 @@ export class WardService {
     this.logger.log('Fetching polling unit');
 
     const ward = await this.wardModel.findById(wardId);
-    if (!ward) throw new NotFoundException('Ward not found');
+    if (!ward) throw new WardNotFoundException();
 
     return await this.pollingUnitModel.find({
       wardName: ward.name,
@@ -234,7 +245,7 @@ export class WardService {
   async pollingUnits(lgaId: string): Promise<PollingUnitResponse[] | null> {
     this.logger.log('Fetching polling unit');
     const lga = await this.lgaService.find(lgaId);
-    if (!lga) throw new NotFoundException('Lga not found');
+    if (!lga) throw new LgaNotFoundException();
     const wards = await this.wardModel.find({ lga: lga });
 
     const pollingUnits = await this.pollingUnitModel
@@ -284,13 +295,13 @@ export class WardService {
         name: d['Registration Area'],
       });
       if (ward) {
-        const puCode = getPuCode(d['Delimitation']);
+        const puCode = StringUtils.parsePollingUnitCode(d['Delimitation']);
         let foundUnit = await this.pollingUnitModel.findOne({
           ward,
           code: puCode,
         });
         if (!foundUnit) {
-          const accreditedCount = calculateAccreditedCount(
+          const accreditedCount = MathUtils.calculateAccreditedCount(
             d['Percentage of Collected PVCs to Registered Voters'],
             d['No of Collected PVCs'],
           );
@@ -318,13 +329,13 @@ export class WardService {
       });
 
       if (ward) {
-        const puCode = getPuCode(d['Delimitation']);
+        const puCode = StringUtils.parsePollingUnitCode(d['Delimitation']);
         let foundUnit = await this.pollingUnitModel.findOne({
           ward,
           code: puCode,
         });
         if (foundUnit) {
-          const accreditedCount = calculateAccreditedCount(
+          const accreditedCount = MathUtils.calculateAccreditedCount(
             90,
             d['No of Collected PVCs'],
           );
@@ -338,18 +349,4 @@ export class WardService {
       }
     }
   }
-}
-
-function calculateAccreditedCount(
-  percentage: number,
-  collectedPvc: number,
-): number {
-  let result = collectedPvc;
-  if (percentage !== 0) result = Math.ceil(collectedPvc * percentage);
-  return result;
-}
-
-function getPuCode(delimitation: string): string {
-  const delimitationArray = delimitation.split('-');
-  return delimitationArray[3];
 }

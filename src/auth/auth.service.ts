@@ -1,10 +1,5 @@
 import * as bcrypt from 'bcrypt';
-import {
-  ConflictException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
@@ -15,6 +10,7 @@ import TokenResponse from './dtos/response/token.response';
 import RegisterRequest from './dtos/request/register.request';
 import { UserType } from 'src/user/enum/userType.enum';
 import { StateService } from 'src/state/state.service';
+import { UserAlreadyExistsException, StateNotFoundException } from '../exceptions/business.exceptions';
 
 @Injectable()
 export class AuthService {
@@ -25,7 +21,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private stateStateService: StateService,
-  ) {}
+  ) { }
 
   async validateUser(userName: string, password: string): Promise<User> {
     let confirmedUser: User;
@@ -64,20 +60,27 @@ export class AuthService {
   }
 
   async registerUser(data: RegisterRequest): Promise<User> {
-    let user = await this.userService.findOne(data.username);
-    if (user) throw new ConflictException(`User already exist!`);
+    // Check if user already exists
+    const existingUser = await this.userService.findOne(data.username);
+    if (existingUser) {
+      throw new UserAlreadyExistsException();
+    }
 
+    // Validate state exists
     const state = await this.stateStateService.find(data.stateId);
-    if (!state) throw new NotFoundException('State not found');
+    if (!state) {
+      throw new StateNotFoundException();
+    }
 
-    data.password = await this.hashPassword(data.password);
+    // Hash password and create user
+    const hashedPassword = await this.hashPassword(data.password);
     const newUser: User = {
       userName: data.username,
-      password: data.password,
+      password: hashedPassword,
       state,
       userType: UserType.AGENT,
     };
-    user = await this.userService.create(newUser);
-    return user;
+
+    return await this.userService.create(newUser);
   }
 }
