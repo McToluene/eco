@@ -32,9 +32,25 @@ export class AuthService {
   }
 
   login(user: User): AuthResponse {
+    // Get state IDs from user's states or from their assigned polling units
+    let stateIds = [];
+    if (user.states && user.states.length > 0) {
+      stateIds = user.states.map((state: any) => state._id);
+    } else if (user.assignedPollingUnits && user.assignedPollingUnits.length > 0) {
+      // Derive state IDs from polling units
+      const stateMap = new Map();
+      user.assignedPollingUnits.forEach((unit: any) => {
+        const state = unit.ward?.lga?.state;
+        if (state && state._id) {
+          stateMap.set(state._id.toString(), state._id);
+        }
+      });
+      stateIds = Array.from(stateMap.values());
+    }
+
     const payload = {
       username: user.userName,
-      stateId: (user.state as any)._id,
+      stateIds: stateIds,
       userId: (user as any)._id,
       userType: user.userType,
     };
@@ -68,10 +84,20 @@ export class AuthService {
       throw new UserAlreadyExistsException();
     }
 
-    // Validate state exists
-    const state = await this.stateStateService.find(data.stateId);
-    if (!state) {
-      throw new StateNotFoundException();
+    let states = [];
+    // Validate states if provided
+    if (data.stateIds && data.stateIds.length > 0) {
+      // Remove duplicates
+      const uniqueStateIds = [...new Set(data.stateIds)];
+      
+      states = await Promise.all(
+        uniqueStateIds.map(stateId => this.stateStateService.find(stateId))
+      );
+
+      const invalidStates = states.filter(state => !state);
+      if (invalidStates.length > 0) {
+        throw new StateNotFoundException();
+      }
     }
 
     // Hash password and create user
@@ -79,7 +105,7 @@ export class AuthService {
     const newUser: Partial<User> = {
       userName: data.username,
       password: hashedPassword,
-      state,
+      states,
       userType: UserType.AGENT,
       assignedPollingUnits: [],
       createdAt: new Date(),

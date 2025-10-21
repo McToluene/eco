@@ -4,11 +4,11 @@ export interface UserResponse {
     _id: string;
     userName: string;
     userType: UserType;
-    state: {
+    states: Array<{
         _id: string;
         name: string;
         code: string;
-    };
+    }>;
     assignedPollingUnits: Array<{
         _id: string;
         name: string;

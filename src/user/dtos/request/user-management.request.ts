@@ -13,10 +13,10 @@ export class CreateUserRequest {
     @MinLength(6)
     password: string;
 
-    @IsString()
-    @IsNotEmpty()
-    @IsMongoId()
-    stateId: string;
+    @IsArray()
+    @IsOptional()
+    @IsMongoId({ each: true })
+    stateIds?: string[];
 
     @IsEnum(UserType)
     @IsOptional()

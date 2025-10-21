@@ -21,11 +21,27 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // Fetch full user details including assigned polling units
     const user = await this.userService.findOne(payload.username);
 
+    // Get state IDs from user's states or from their assigned polling units
+    let stateIds = [];
+    if (user.states && user.states.length > 0) {
+      stateIds = user.states.map((state: any) => state._id);
+    } else if (user.assignedPollingUnits && user.assignedPollingUnits.length > 0) {
+      // Derive state IDs from polling units
+      const stateMap = new Map();
+      user.assignedPollingUnits.forEach((unit: any) => {
+        const state = unit.ward?.lga?.state;
+        if (state && state._id) {
+          stateMap.set(state._id.toString(), state._id);
+        }
+      });
+      stateIds = Array.from(stateMap.values());
+    }
+
     return {
       userId: (user as any)._id,
       username: user.userName,
       userType: user.userType,
-      stateId: (user.state as any)._id,
+      stateIds: stateIds,
       lgaId: payload.lgaId, // Keep for backward compatibility
       assignedPollingUnits: user.assignedPollingUnits,
     };

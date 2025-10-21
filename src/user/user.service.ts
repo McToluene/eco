@@ -4,7 +4,7 @@ import { User, UserDocument } from './schemas/user.schema';
 import { Model } from 'mongoose';
 import { CreateUserRequest, AssignPollingUnitsRequest, UpdateUserRequest } from './dtos/request/user-management.request';
 import { UserResponse, UserListResponse } from './dtos/response/user-management.response';
-import { UserAlreadyExistsException, StateNotFoundException, PollingUnitNotFoundException, PollingUnitNotInStateException } from '../exceptions/business.exceptions';
+import { UserAlreadyExistsException, StateNotFoundException, PollingUnitNotFoundException } from '../exceptions/business.exceptions';
 import { StateService } from '../state/state.service';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
@@ -24,7 +24,7 @@ export class UserService {
   async findOne(userName: string): Promise<User | undefined> {
     this.logger.log('Finding user', userName);
     return this.userModel.findOne({ userName })
-      .populate('state')
+      .populate('states')
       .populate('assignedPollingUnits')
       .populate('createdBy', 'userName');
   }
@@ -32,12 +32,18 @@ export class UserService {
   async findById(userId: string): Promise<User | undefined> {
     this.logger.log('Finding user by ID', userId);
     return this.userModel.findById(userId)
-      .populate('state')
+      .populate('states')
       .populate({
         path: 'assignedPollingUnits',
         populate: {
           path: 'ward',
-          model: 'Ward'
+          populate: {
+            path: 'lga',
+            populate: {
+              path: 'state',
+              model: 'State'
+            }
+          }
         }
       })
       .populate('createdBy', 'userName');
@@ -53,18 +59,39 @@ export class UserService {
   async createUserByAdmin(createUserDto: CreateUserRequest, adminUserId: string): Promise<UserResponse> {
     this.logger.log('Admin creating user');
 
+    // Check if user already exists
     const existingUser = await this.userModel.findOne({ userName: createUserDto.userName });
     if (existingUser) {
       throw new UserAlreadyExistsException();
     }
 
-    const state = await this.stateService.find(createUserDto.stateId);
-    if (!state) {
-      throw new StateNotFoundException();
+    // Validate that either stateIds or assignedPollingUnits is provided
+    if ((!createUserDto.stateIds || createUserDto.stateIds.length === 0) && 
+        (!createUserDto.assignedPollingUnits || createUserDto.assignedPollingUnits.length === 0)) {
+      throw new BadRequestException('Either stateIds or assignedPollingUnits must be provided');
     }
 
+    let states = [];
     let assignedPollingUnits = [];
+
+    // Validate states if provided
+    if (createUserDto.stateIds?.length > 0) {
+      // Remove duplicates
+      const uniqueStateIds = [...new Set(createUserDto.stateIds)];
+      
+      states = await Promise.all(
+        uniqueStateIds.map(stateId => this.stateService.find(stateId))
+      );
+
+      const invalidStates = states.filter(state => !state);
+      if (invalidStates.length > 0) {
+        throw new StateNotFoundException();
+      }
+    }
+
+    // Validate polling units if provided
     if (createUserDto.assignedPollingUnits?.length > 0) {
+      // Remove duplicates
       const uniquePollingUnitIds = [...new Set(createUserDto.assignedPollingUnits)];
 
       assignedPollingUnits = await this.pollingUnitModel.find({
@@ -84,14 +111,6 @@ export class UserService {
       if (assignedPollingUnits.length !== uniquePollingUnitIds.length) {
         throw new PollingUnitNotFoundException();
       }
-
-      const pollingUnitsNotInState = assignedPollingUnits.filter((unit: any) => {
-        return unit.ward?.lga?.state?._id.toString() !== createUserDto.stateId;
-      });
-
-      if (pollingUnitsNotInState.length > 0) {
-        throw new PollingUnitNotInStateException();
-      }
     }
 
     // Hash password
@@ -101,7 +120,7 @@ export class UserService {
     const userData: Partial<User> = {
       userName: createUserDto.userName,
       password: hashedPassword,
-      state,
+      states,
       userType: createUserDto.userType,
       assignedPollingUnits,
       createdBy: { _id: adminUserId } as any,
@@ -121,12 +140,18 @@ export class UserService {
 
     const [users, total] = await Promise.all([
       this.userModel.find()
-        .populate('state')
+        .populate('states')
         .populate({
           path: 'assignedPollingUnits',
           populate: {
             path: 'ward',
-            model: 'Ward'
+            populate: {
+              path: 'lga',
+              populate: {
+                path: 'state',
+                model: 'State'
+              }
+            }
           }
         })
         .populate('createdBy', 'userName')
@@ -171,12 +196,15 @@ export class UserService {
     }
 
     if (updateUserDto.assignedPollingUnits) {
+      // Remove duplicates
+      const uniquePollingUnitIds = [...new Set(updateUserDto.assignedPollingUnits)];
+      
       // Validate polling units
       const pollingUnits = await this.pollingUnitModel.find({
-        _id: { $in: updateUserDto.assignedPollingUnits }
+        _id: { $in: uniquePollingUnitIds }
       });
 
-      if (pollingUnits.length !== updateUserDto.assignedPollingUnits.length) {
+      if (pollingUnits.length !== uniquePollingUnitIds.length) {
         throw new PollingUnitNotFoundException();
       }
 
@@ -195,12 +223,15 @@ export class UserService {
   async assignPollingUnits(userId: string, assignDto: AssignPollingUnitsRequest): Promise<UserResponse> {
     this.logger.log('Assigning polling units to user');
 
+    // Remove duplicates
+    const uniquePollingUnitIds = [...new Set(assignDto.pollingUnitIds)];
+
     // Validate polling units exist
     const pollingUnits = await this.pollingUnitModel.find({
-      _id: { $in: assignDto.pollingUnitIds }
+      _id: { $in: uniquePollingUnitIds }
     });
 
-    if (pollingUnits.length !== assignDto.pollingUnitIds.length) {
+    if (pollingUnits.length !== uniquePollingUnitIds.length) {
       throw new PollingUnitNotFoundException();
     }
 
@@ -224,12 +255,18 @@ export class UserService {
     const users = await this.userModel.find({
       assignedPollingUnits: pollingUnitId
     })
-      .populate('state')
+      .populate('states')
       .populate({
         path: 'assignedPollingUnits',
         populate: {
           path: 'ward',
-          model: 'Ward'
+          populate: {
+            path: 'lga',
+            populate: {
+              path: 'state',
+              model: 'State'
+            }
+          }
         }
       })
       .populate('createdBy', 'userName');
@@ -238,15 +275,40 @@ export class UserService {
   }
 
   private formatUserResponse(user: User): UserResponse {
+    // If user has assignedPollingUnits, derive states from them
+    let derivedStates = [];
+    if (user.assignedPollingUnits && user.assignedPollingUnits.length > 0) {
+      const stateMap = new Map();
+      user.assignedPollingUnits.forEach((unit: any) => {
+        const state = unit.ward?.lga?.state;
+        if (state && state._id) {
+          const stateId = state._id.toString();
+          if (!stateMap.has(stateId)) {
+            stateMap.set(stateId, {
+              _id: state._id,
+              name: state.name,
+              code: state.code,
+            });
+          }
+        }
+      });
+      derivedStates = Array.from(stateMap.values());
+    }
+
+    // Use explicit states if available and no polling units, otherwise use derived states
+    const statesToReturn = (user.assignedPollingUnits && user.assignedPollingUnits.length > 0)
+      ? derivedStates
+      : (user.states || []).map((state: any) => ({
+          _id: state._id,
+          name: state.name,
+          code: state.code,
+        }));
+
     return {
       _id: (user as any)._id,
       userName: user.userName,
       userType: user.userType,
-      state: {
-        _id: (user.state as any)._id,
-        name: (user.state as any).name,
-        code: (user.state as any).code,
-      },
+      states: statesToReturn,
       assignedPollingUnits: (user.assignedPollingUnits || []).map((unit: any) => ({
         _id: unit._id,
         name: unit.name,

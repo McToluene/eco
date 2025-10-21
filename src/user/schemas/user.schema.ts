@@ -16,11 +16,10 @@ export class User {
   password: string;
 
   @Prop({
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'State',
-    required: true,
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'State' }],
+    default: [],
   })
-  state: State;
+  states: State[];
 
   @Prop({ type: String, enum: UserType, default: UserType.AGENT })
   userType: UserType;
