@@ -113,6 +113,7 @@ export class UserService {
       }
     }
 
+
     const salt = await bcrypt.genSalt(+this.configService.get<number>('SALT_ROUND'));
     const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
 

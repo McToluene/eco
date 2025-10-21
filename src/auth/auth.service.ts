@@ -32,21 +32,36 @@ export class AuthService {
   }
 
   login(user: User): AuthResponse {
-    // Get state IDs from user's states or from their assigned polling units
-    let stateIds = [];
-    if (user.states && user.states.length > 0) {
-      stateIds = user.states.map((state: any) => state._id);
-    } else if (user.assignedPollingUnits && user.assignedPollingUnits.length > 0) {
-      // Derive state IDs from polling units
+    // Format user response similar to formatUserResponse in UserService
+    let derivedStates = [];
+    if (user.assignedPollingUnits && user.assignedPollingUnits.length > 0) {
       const stateMap = new Map();
       user.assignedPollingUnits.forEach((unit: any) => {
         const state = unit.ward?.lga?.state;
         if (state && state._id) {
-          stateMap.set(state._id.toString(), state._id);
+          const stateId = state._id.toString();
+          if (!stateMap.has(stateId)) {
+            stateMap.set(stateId, {
+              _id: state._id,
+              name: state.name,
+              code: state.code,
+            });
+          }
         }
       });
-      stateIds = Array.from(stateMap.values());
+      derivedStates = Array.from(stateMap.values());
     }
+
+    const statesToReturn = (user.assignedPollingUnits && user.assignedPollingUnits.length > 0)
+      ? derivedStates
+      : (user.states || []).map((state: any) => ({
+          _id: state._id,
+          name: state.name,
+          code: state.code,
+        }));
+
+    // Get state IDs for JWT payload
+    const stateIds = statesToReturn.map((state: any) => state._id);
 
     const payload = {
       username: user.userName,
@@ -63,7 +78,25 @@ export class AuthService {
     return {
       token,
       user: {
-        username: user.userName,
+        _id: (user as any)._id,
+        userName: user.userName,
+        userType: user.userType,
+        states: statesToReturn,
+        assignedPollingUnits: (user.assignedPollingUnits || []).map((unit: any) => ({
+          _id: unit._id,
+          name: unit.name,
+          code: unit.code,
+          ward: {
+            _id: unit.ward?._id,
+            name: unit.ward?.name,
+            code: unit.ward?.code,
+          }
+        })),
+        createdAt: user.createdAt,
+        createdBy: user.createdBy ? {
+          _id: (user.createdBy as any)._id,
+          userName: (user.createdBy as any).userName,
+        } : undefined,
       },
     };
   }
