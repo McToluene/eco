@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { Model } from 'mongoose';
@@ -53,23 +53,22 @@ export class UserService {
   async createUserByAdmin(createUserDto: CreateUserRequest, adminUserId: string): Promise<UserResponse> {
     this.logger.log('Admin creating user');
 
-    // Check if user already exists
     const existingUser = await this.userModel.findOne({ userName: createUserDto.userName });
     if (existingUser) {
       throw new UserAlreadyExistsException();
     }
 
-    // Validate state exists
     const state = await this.stateService.find(createUserDto.stateId);
     if (!state) {
       throw new StateNotFoundException();
     }
 
-    // Validate polling units if provided
     let assignedPollingUnits = [];
     if (createUserDto.assignedPollingUnits?.length > 0) {
+      const uniquePollingUnitIds = [...new Set(createUserDto.assignedPollingUnits)];
+
       assignedPollingUnits = await this.pollingUnitModel.find({
-        _id: { $in: createUserDto.assignedPollingUnits }
+        _id: { $in: uniquePollingUnitIds }
       })
         .populate({
           path: 'ward',
@@ -82,7 +81,7 @@ export class UserService {
           }
         });
 
-      if (assignedPollingUnits.length !== createUserDto.assignedPollingUnits.length) {
+      if (assignedPollingUnits.length !== uniquePollingUnitIds.length) {
         throw new PollingUnitNotFoundException();
       }
 
