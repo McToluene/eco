@@ -59,24 +59,26 @@ export class UserService {
   async createUserByAdmin(createUserDto: CreateUserRequest, adminUserId: string): Promise<UserResponse> {
     this.logger.log('Admin creating user');
 
-    // Check if user already exists
     const existingUser = await this.userModel.findOne({ userName: createUserDto.userName });
     if (existingUser) {
       throw new UserAlreadyExistsException();
     }
 
-    // Validate that either stateIds or assignedPollingUnits is provided
-    if ((!createUserDto.stateIds || createUserDto.stateIds.length === 0) &&
-      (!createUserDto.assignedPollingUnits || createUserDto.assignedPollingUnits.length === 0)) {
+    const hasStateIds = createUserDto.stateIds && createUserDto.stateIds.length > 0;
+    const hasPollingUnits = createUserDto.assignedPollingUnits && createUserDto.assignedPollingUnits.length > 0;
+
+    if (!hasStateIds && !hasPollingUnits) {
       throw new BadRequestException('Either stateIds or assignedPollingUnits must be provided');
+    }
+
+    if (hasStateIds && hasPollingUnits) {
+      throw new BadRequestException('Cannot provide both stateIds and assignedPollingUnits. Please provide only one.');
     }
 
     let states = [];
     let assignedPollingUnits = [];
 
-    // Validate states if provided
     if (createUserDto.stateIds?.length > 0) {
-      // Remove duplicates
       const uniqueStateIds = [...new Set(createUserDto.stateIds)];
 
       states = await Promise.all(
@@ -89,9 +91,7 @@ export class UserService {
       }
     }
 
-    // Validate polling units if provided
     if (createUserDto.assignedPollingUnits?.length > 0) {
-      // Remove duplicates
       const uniquePollingUnitIds = [...new Set(createUserDto.assignedPollingUnits)];
 
       assignedPollingUnits = await this.pollingUnitModel.find({
@@ -113,7 +113,6 @@ export class UserService {
       }
     }
 
-    // Hash password
     const salt = await bcrypt.genSalt(+this.configService.get<number>('SALT_ROUND'));
     const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
 
