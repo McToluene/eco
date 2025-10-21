@@ -89,7 +89,7 @@ export class AuthService {
     if (data.stateIds && data.stateIds.length > 0) {
       // Remove duplicates
       const uniqueStateIds = [...new Set(data.stateIds)];
-      
+
       states = await Promise.all(
         uniqueStateIds.map(stateId => this.stateStateService.find(stateId))
       );

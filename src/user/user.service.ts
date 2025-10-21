@@ -66,8 +66,8 @@ export class UserService {
     }
 
     // Validate that either stateIds or assignedPollingUnits is provided
-    if ((!createUserDto.stateIds || createUserDto.stateIds.length === 0) && 
-        (!createUserDto.assignedPollingUnits || createUserDto.assignedPollingUnits.length === 0)) {
+    if ((!createUserDto.stateIds || createUserDto.stateIds.length === 0) &&
+      (!createUserDto.assignedPollingUnits || createUserDto.assignedPollingUnits.length === 0)) {
       throw new BadRequestException('Either stateIds or assignedPollingUnits must be provided');
     }
 
@@ -78,7 +78,7 @@ export class UserService {
     if (createUserDto.stateIds?.length > 0) {
       // Remove duplicates
       const uniqueStateIds = [...new Set(createUserDto.stateIds)];
-      
+
       states = await Promise.all(
         uniqueStateIds.map(stateId => this.stateService.find(stateId))
       );
@@ -198,7 +198,7 @@ export class UserService {
     if (updateUserDto.assignedPollingUnits) {
       // Remove duplicates
       const uniquePollingUnitIds = [...new Set(updateUserDto.assignedPollingUnits)];
-      
+
       // Validate polling units
       const pollingUnits = await this.pollingUnitModel.find({
         _id: { $in: uniquePollingUnitIds }
@@ -299,10 +299,10 @@ export class UserService {
     const statesToReturn = (user.assignedPollingUnits && user.assignedPollingUnits.length > 0)
       ? derivedStates
       : (user.states || []).map((state: any) => ({
-          _id: state._id,
-          name: state.name,
-          code: state.code,
-        }));
+        _id: state._id,
+        name: state.name,
+        code: state.code,
+      }));
 
     return {
       _id: (user as any)._id,
