@@ -4,7 +4,7 @@ import { User, UserDocument } from './schemas/user.schema';
 import { Model } from 'mongoose';
 import { CreateUserRequest, AssignPollingUnitsRequest, UpdateUserRequest } from './dtos/request/user-management.request';
 import { UserResponse, UserListResponse } from './dtos/response/user-management.response';
-import { UserAlreadyExistsException, StateNotFoundException, PollingUnitNotFoundException } from '../exceptions/business.exceptions';
+import { UserAlreadyExistsException, StateNotFoundException, PollingUnitNotFoundException, PollingUnitNotInStateException } from '../exceptions/business.exceptions';
 import { StateService } from '../state/state.service';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
@@ -70,10 +70,28 @@ export class UserService {
     if (createUserDto.assignedPollingUnits?.length > 0) {
       assignedPollingUnits = await this.pollingUnitModel.find({
         _id: { $in: createUserDto.assignedPollingUnits }
-      });
+      })
+        .populate({
+          path: 'ward',
+          populate: {
+            path: 'lga',
+            populate: {
+              path: 'state',
+              model: 'State'
+            }
+          }
+        });
 
       if (assignedPollingUnits.length !== createUserDto.assignedPollingUnits.length) {
         throw new PollingUnitNotFoundException();
+      }
+
+      const pollingUnitsNotInState = assignedPollingUnits.filter((unit: any) => {
+        return unit.ward?.lga?.state?._id.toString() !== createUserDto.stateId;
+      });
+
+      if (pollingUnitsNotInState.length > 0) {
+        throw new PollingUnitNotInStateException();
       }
     }
 

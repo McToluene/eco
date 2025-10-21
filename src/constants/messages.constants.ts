@@ -27,6 +27,7 @@ export const HTTP_MESSAGES = {
         WARD_NOT_FOUND: 'Ward not found',
         STATE_NOT_FOUND: 'State not found',
         POLLING_UNIT_NOT_FOUND: 'Polling Unit not found!',
+        POLLING_UNIT_NOT_IN_STATE: 'One or more polling units do not belong to the specified state',
         INVALID_CREDENTIALS: 'Invalid login credentials',
     },
 } as const;

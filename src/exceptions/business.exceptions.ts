@@ -31,6 +31,12 @@ export class PollingUnitNotFoundException extends NotFoundException {
     }
 }
 
+export class PollingUnitNotInStateException extends BadRequestException {
+    constructor() {
+        super(HTTP_MESSAGES.ERROR.POLLING_UNIT_NOT_IN_STATE);
+    }
+}
+
 export class WardAlreadyExistsException extends ConflictException {
     constructor() {
         super(HTTP_MESSAGES.ERROR.WARD_ALREADY_EXISTS);
