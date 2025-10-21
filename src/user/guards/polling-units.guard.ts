@@ -61,7 +61,7 @@ export class PollingUnitsGuard implements CanActivate {
             }
 
             const pollingUnitStateId = (pollingUnit as any).ward?.lga?.state?._id?.toString();
-            
+
             if (!pollingUnitStateId) {
                 throw new ForbiddenException('Unable to determine polling unit state');
             }

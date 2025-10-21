@@ -55,10 +55,10 @@ export class AuthService {
     const statesToReturn = (user.assignedPollingUnits && user.assignedPollingUnits.length > 0)
       ? derivedStates
       : (user.states || []).map((state: any) => ({
-          _id: state._id,
-          name: state.name,
-          code: state.code,
-        }));
+        _id: state._id,
+        name: state.name,
+        code: state.code,
+      }));
 
     // Get state IDs for JWT payload
     const stateIds = statesToReturn.map((state: any) => state._id);
