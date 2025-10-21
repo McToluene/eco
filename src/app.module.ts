@@ -10,6 +10,7 @@ import { LgaModule } from './lga/lga.module';
 import { RegisteredModule } from './registered/registered.module';
 import { DatabaseConfig } from './config/database.config';
 import { EnvironmentVariables } from './config/environment.config';
+import { SeederService } from './database/seeder.service';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 
@@ -49,6 +50,6 @@ import { plainToInstance } from 'class-transformer';
     RegisteredModule,
   ],
   controllers: [],
-  providers: [AppService, DatabaseConfig],
+  providers: [AppService, DatabaseConfig, SeederService],
 })
 export class AppModule { }
