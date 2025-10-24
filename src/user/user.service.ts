@@ -38,10 +38,13 @@ export class UserService {
         select: '_id name code accreditedCount registeredCount',
         populate: {
           path: 'ward',
+          select: '_id name code',
           populate: {
             path: 'lga',
+            select: '_id name code',
             populate: {
               path: 'state',
+              select: '_id name code',
               model: 'State'
             }
           }
@@ -101,10 +104,13 @@ export class UserService {
         .select('_id name code accreditedCount registeredCount')
         .populate({
           path: 'ward',
+          select: '_id name code',
           populate: {
             path: 'lga',
+            select: '_id name code',
             populate: {
               path: 'state',
+              select: '_id name code',
               model: 'State'
             }
           }
@@ -148,10 +154,13 @@ export class UserService {
           select: '_id name code accreditedCount registeredCount',
           populate: {
             path: 'ward',
+            select: '_id name code',
             populate: {
               path: 'lga',
+              select: '_id name code',
               populate: {
                 path: 'state',
+                select: '_id name code',
                 model: 'State'
               }
             }
@@ -262,10 +271,13 @@ export class UserService {
         select: '_id name code accreditedCount registeredCount',
         populate: {
           path: 'ward',
+          select: '_id name code',
           populate: {
             path: 'lga',
+            select: '_id name code',
             populate: {
               path: 'state',
+              select: '_id name code',
               model: 'State'
             }
           }
