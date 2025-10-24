@@ -25,14 +25,6 @@ export class UserService {
     this.logger.log('Finding user', userName);
     return this.userModel.findOne({ userName })
       .populate('states')
-      .populate('assignedPollingUnits')
-      .populate('createdBy', 'userName');
-  }
-
-  async findById(userId: string): Promise<User | undefined> {
-    this.logger.log('Finding user by ID', userId);
-    return this.userModel.findById(userId)
-      .populate('states')
       .populate({
         path: 'assignedPollingUnits',
         select: '_id name code accreditedCount registeredCount',
@@ -47,6 +39,29 @@ export class UserService {
             populate: {
               path: 'state',
               select: '_id name code',
+              model: 'State'
+            }
+          }
+        }
+      })
+      .populate('createdBy', 'userName');
+  }
+
+  async findById(userId: string): Promise<User | undefined> {
+    this.logger.log('Finding user by ID', userId);
+    return this.userModel.findById(userId)
+      .populate('states')
+      .populate({
+        path: 'assignedPollingUnits',
+        select: '_id name code accreditedCount registeredCount',
+        populate: {
+          path: 'ward',
+          model: 'Ward',
+          populate: {
+            path: 'lga',
+            model: 'Lga',
+            populate: {
+              path: 'state',
               model: 'State'
             }
           }
