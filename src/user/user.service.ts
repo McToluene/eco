@@ -39,9 +39,11 @@ export class UserService {
         populate: {
           path: 'ward',
           select: '_id name code',
+          model: 'Ward',
           populate: {
             path: 'lga',
             select: '_id name code',
+            model: 'Lga',
             populate: {
               path: 'state',
               select: '_id name code',
@@ -105,9 +107,11 @@ export class UserService {
         .populate({
           path: 'ward',
           select: '_id name code',
+          model: 'Ward',
           populate: {
             path: 'lga',
             select: '_id name code',
+            model: 'Lga',
             populate: {
               path: 'state',
               select: '_id name code',
@@ -155,9 +159,11 @@ export class UserService {
           populate: {
             path: 'ward',
             select: '_id name code',
+            model: 'Ward',
             populate: {
               path: 'lga',
               select: '_id name code',
+              model: 'Lga',
               populate: {
                 path: 'state',
                 select: '_id name code',
@@ -272,9 +278,11 @@ export class UserService {
         populate: {
           path: 'ward',
           select: '_id name code',
+          model: 'Ward',
           populate: {
             path: 'lga',
             select: '_id name code',
+            model: 'Lga',
             populate: {
               path: 'state',
               select: '_id name code',
