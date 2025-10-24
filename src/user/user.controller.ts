@@ -67,7 +67,7 @@ export class UserController {
     @Get(':id')
     async getUserById(@Param('id') id: string): Promise<BaseResponse<UserResponse>> {
         const user = await this.userService.findById(id);
-        const userResponse = this.userService['formatUserResponse'](user); // Access private method via bracket notation
+        const userResponse = await this.userService['formatUserResponse'](user);
         return ResponseUtils.createSuccessResponse(
             'User fetched successfully!',
             userResponse,
