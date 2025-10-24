@@ -7,21 +7,19 @@ import { UserService } from '../../user/user.service';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    private configService: ConfigService,
+    configService: ConfigService,
     private userService: UserService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ignoreExpiration: false,
+      ignoreExpiration: true,
       secretOrKey: configService.get<string>('ACCESS_SECRET'),
     });
   }
 
   async validate(payload: any) {
-    // Fetch full user details including assigned polling units with full hierarchy
     const user = await this.userService.findById(payload.userId);
-
-    // Get state IDs from user's states or from their assigned polling units
+    console.log('JWT Strategy - Validating user:', user);
     let stateIds = [];
     let hasStateBasedAccess = false;
 
@@ -29,7 +27,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       stateIds = user.states.map((state: any) => state._id.toString());
       hasStateBasedAccess = true;
     } else if (user.assignedPollingUnits && user.assignedPollingUnits.length > 0) {
-      // Derive state IDs from polling units
       const stateMap = new Map();
       user.assignedPollingUnits.forEach((unit: any) => {
         const state = unit.ward?.lga?.state;
@@ -45,7 +42,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       username: user.userName,
       userType: user.userType,
       stateIds: stateIds,
-      hasStateBasedAccess: hasStateBasedAccess, // True if user has state-based access (all polling units in states)
+      hasStateBasedAccess: hasStateBasedAccess,
       assignedPollingUnits: user.assignedPollingUnits,
     };
   }

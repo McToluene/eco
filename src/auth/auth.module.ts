@@ -18,7 +18,7 @@ import { StateModule } from 'src/state/state.module';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('ACCESS_SECRET'),
-        signOptions: { expiresIn: '2days' },
+        signOptions: { expiresIn: '3d' },
       }),
       inject: [ConfigService],
     }),
