@@ -35,6 +35,7 @@ export class UserService {
       .populate('states')
       .populate({
         path: 'assignedPollingUnits',
+        select: '_id name code accreditedCount registeredCount',
         populate: {
           path: 'ward',
           populate: {
@@ -97,6 +98,7 @@ export class UserService {
       assignedPollingUnits = await this.pollingUnitModel.find({
         _id: { $in: uniquePollingUnitIds }
       })
+        .select('_id name code accreditedCount registeredCount')
         .populate({
           path: 'ward',
           populate: {
@@ -143,6 +145,7 @@ export class UserService {
         .populate('states')
         .populate({
           path: 'assignedPollingUnits',
+          select: '_id name code accreditedCount registeredCount',
           populate: {
             path: 'ward',
             populate: {
@@ -161,8 +164,10 @@ export class UserService {
       this.userModel.countDocuments()
     ]);
 
+    const formattedUsers = await Promise.all(users.map(user => this.formatUserResponse(user)));
+
     return {
-      users: users.map(user => this.formatUserResponse(user)),
+      users: formattedUsers,
       total,
       page,
       limit
@@ -175,7 +180,6 @@ export class UserService {
     const updateData: any = {};
 
     if (updateUserDto.userName) {
-      // Check if username is already taken by another user
       const existingUser = await this.userModel.findOne({
         userName: updateUserDto.userName,
         _id: { $ne: userId }
@@ -196,10 +200,7 @@ export class UserService {
     }
 
     if (updateUserDto.assignedPollingUnits) {
-      // Remove duplicates
       const uniquePollingUnitIds = [...new Set(updateUserDto.assignedPollingUnits)];
-
-      // Validate polling units
       const pollingUnits = await this.pollingUnitModel.find({
         _id: { $in: uniquePollingUnitIds }
       });
@@ -258,6 +259,7 @@ export class UserService {
       .populate('states')
       .populate({
         path: 'assignedPollingUnits',
+        select: '_id name code accreditedCount registeredCount',
         populate: {
           path: 'ward',
           populate: {
@@ -271,10 +273,10 @@ export class UserService {
       })
       .populate('createdBy', 'userName');
 
-    return users.map(user => this.formatUserResponse(user));
+    return await Promise.all(users.map(user => this.formatUserResponse(user)));
   }
 
-  private formatUserResponse(user: User): UserResponse {
+  private async formatUserResponse(user: User): Promise<UserResponse> {
     // If user has assignedPollingUnits, derive states from them
     let derivedStates = [];
     if (user.assignedPollingUnits && user.assignedPollingUnits.length > 0) {
@@ -313,10 +315,22 @@ export class UserService {
         _id: unit._id,
         name: unit.name,
         code: unit.code,
+        accreditedCount: unit.accreditedCount || 0,
+        registeredCount: unit.registeredCount || 0,
         ward: {
           _id: unit.ward?._id,
           name: unit.ward?.name,
           code: unit.ward?.code,
+          lga: {
+            _id: unit.ward?.lga?._id,
+            name: unit.ward?.lga?.name,
+            code: unit.ward?.lga?.code,
+            state: {
+              _id: unit.ward?.lga?.state?._id,
+              name: unit.ward?.lga?.state?.name,
+              code: unit.ward?.lga?.state?.code,
+            }
+          }
         }
       })),
       createdAt: user.createdAt,

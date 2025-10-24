@@ -17,7 +17,7 @@ import { WardService } from './ward.service';
 import { Ward } from './schemas/ward.schema';
 import { PollingUnit } from './schemas/polling.schema';
 import { HTTP_MESSAGES } from '../constants/messages.constants';
-import { FileNotUploadedException } from '../exceptions/business.exceptions';
+import { FileNotUploadedException, PollingUnitNotFoundException } from '../exceptions/business.exceptions';
 import { ResponseUtils } from '../utils/common.utils';
 
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
@@ -27,6 +27,7 @@ import PollingUnitResponse from './dtos/response/pollingUnit.response';
 import PollingUnitRequest from 'src/dtos/request/pollingunit.request';
 import PollingResponse from './dtos/response/polling.response';
 import { FileInterceptor } from '@nestjs/platform-express';
+import PollingUnitDetailResponse from './dtos/response/polling-unit-detail.response';
 
 @Controller('ward')
 export class WardController {
@@ -154,6 +155,46 @@ export class WardController {
       data: wardData,
       status: HttpStatus.OK,
     };
+  }
+
+  @Get('/polling-unit/detail/:pollingUnitId')
+  async getPollingUnitById(
+    @Param('pollingUnitId') pollingUnitId: string,
+  ): Promise<BaseResponse<PollingUnitDetailResponse>> {
+    const pollingUnit = await this.wardService.getPollingUnitById(pollingUnitId);
+
+    if (!pollingUnit) {
+      throw new PollingUnitNotFoundException();
+    }
+
+    const response: PollingUnitDetailResponse = {
+      _id: (pollingUnit as any)._id,
+      name: pollingUnit.name,
+      code: pollingUnit.code,
+      accreditedCount: pollingUnit.accreditedCount,
+      registeredCount: pollingUnit.registeredCount,
+      ward: {
+        _id: (pollingUnit.ward as any)._id,
+        name: (pollingUnit.ward as any).name,
+        code: (pollingUnit.ward as any).code,
+        lga: {
+          _id: (pollingUnit.ward as any).lga._id,
+          name: (pollingUnit.ward as any).lga.name,
+          code: (pollingUnit.ward as any).lga.code,
+          state: {
+            _id: (pollingUnit.ward as any).lga.state._id,
+            name: (pollingUnit.ward as any).lga.state.name,
+            code: (pollingUnit.ward as any).lga.state.code,
+          },
+        },
+      },
+    };
+
+    return ResponseUtils.createSuccessResponse(
+      HTTP_MESSAGES.SUCCESS.POLLING_UNIT_FETCHED,
+      response,
+      HttpStatus.OK
+    );
   }
 
   @UseGuards(JwtAuthGuard)

@@ -6,6 +6,7 @@ import { PollingUnit, PollingUnitSchema } from './schemas/polling.schema';
 import { WardController } from './ward.controller';
 import { LgaModule } from '../lga/lga.module';
 import { State, StateSchema } from 'src/state/schemas/state.schema';
+import { RegisteredModule } from '../registered/registered.module';
 
 @Module({
   imports: [
@@ -15,9 +16,10 @@ import { State, StateSchema } from 'src/state/schemas/state.schema';
       { name: PollingUnit.name, schema: PollingUnitSchema },
     ]),
     LgaModule,
+    RegisteredModule,
   ],
   providers: [WardService],
   exports: [WardService],
   controllers: [WardController],
 })
-export class WardModule {}
+export class WardModule { }

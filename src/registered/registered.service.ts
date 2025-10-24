@@ -141,4 +141,24 @@ export class RegisteredService {
       );
     }
   }
+
+  async countRegisteredVotersByPollingUnit(pollingUnitId: string): Promise<number> {
+    this.logger.log('Counting registered voters for polling unit');
+    return await this.registeredModel.countDocuments({ pollingUnit: pollingUnitId });
+  }
+
+  async countRegisteredVotersByPollingUnits(pollingUnitIds: string[]): Promise<Map<string, number>> {
+    this.logger.log('Counting registered voters for multiple polling units');
+    const counts = await this.registeredModel.aggregate([
+      { $match: { pollingUnit: { $in: pollingUnitIds.map(id => id) } } },
+      { $group: { _id: '$pollingUnit', count: { $sum: 1 } } }
+    ]);
+
+    const countsMap = new Map<string, number>();
+    counts.forEach(item => {
+      countsMap.set(item._id.toString(), item.count);
+    });
+
+    return countsMap;
+  }
 }

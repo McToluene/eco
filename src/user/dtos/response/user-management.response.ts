@@ -13,10 +13,22 @@ export interface UserResponse {
         _id: string;
         name: string;
         code: string;
+        accreditedCount: number;
+        registeredCount: number;
         ward: {
             _id: string;
             name: string;
             code: string;
+            lga: {
+                _id: string;
+                name: string;
+                code: string;
+                state: {
+                    _id: string;
+                    name: string;
+                    code: string;
+                };
+            };
         };
     }>;
     createdAt: Date;

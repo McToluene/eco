@@ -17,6 +17,7 @@ import {
   PollingUnitAlreadyExistsException
 } from '../exceptions/business.exceptions';
 import { StringUtils, MathUtils } from '../utils/common.utils';
+import { RegisteredService } from '../registered/registered.service';
 
 @Injectable()
 export class WardService {
@@ -31,6 +32,7 @@ export class WardService {
     private stateModel: Model<State>,
 
     private readonly lgaService: LgaService,
+    private readonly registeredService: RegisteredService,
   ) { }
 
   async create(entry: WardRequest): Promise<Ward | null> {
@@ -198,6 +200,28 @@ export class WardService {
     const ward = await this.wardModel.findOne({ _id: id });
     if (!ward) throw new WardNotFoundException();
     return await this.pollingUnitModel.find({ ward });
+  }
+
+  async getPollingUnitById(pollingUnitId: string): Promise<PollingUnit | null> {
+    this.logger.log('Fetching polling unit by ID with full details');
+    const pollingUnit = await this.pollingUnitModel.findById(pollingUnitId)
+      .populate({
+        path: 'ward',
+        populate: {
+          path: 'lga',
+          populate: {
+            path: 'state',
+            model: 'State'
+          }
+        }
+      });
+
+    return pollingUnit;
+  }
+
+  async getRegisteredVotersCount(pollingUnitId: string): Promise<number> {
+    this.logger.log('Getting registered voters count for polling unit');
+    return await this.registeredService.countRegisteredVotersByPollingUnit(pollingUnitId);
   }
 
   async createPollingUnits(

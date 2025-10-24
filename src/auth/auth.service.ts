@@ -31,8 +31,7 @@ export class AuthService {
     return confirmedUser;
   }
 
-  login(user: User): AuthResponse {
-    // Format user response similar to formatUserResponse in UserService
+  async login(user: User): Promise<AuthResponse> {
     let derivedStates = [];
     if (user.assignedPollingUnits && user.assignedPollingUnits.length > 0) {
       const stateMap = new Map();
@@ -86,10 +85,22 @@ export class AuthService {
           _id: unit._id,
           name: unit.name,
           code: unit.code,
+          accreditedCount: unit.accreditedCount || 0,
+          registeredCount: unit.registeredCount || 0,
           ward: {
             _id: unit.ward?._id,
             name: unit.ward?.name,
             code: unit.ward?.code,
+            lga: {
+              _id: unit.ward?.lga?._id,
+              name: unit.ward?.lga?.name,
+              code: unit.ward?.lga?.code,
+              state: {
+                _id: unit.ward?.lga?.state?._id,
+                name: unit.ward?.lga?.state?.name,
+                code: unit.ward?.lga?.state?.code,
+              }
+            }
           }
         })),
         createdAt: user.createdAt,

@@ -18,12 +18,12 @@ import RegisterRequest from './dtos/request/register.request';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService) { }
 
   @UseGuards(LocalAuthGuard)
   @Post('/login')
   async login(@Req() req: Request): Promise<BaseResponse<AuthResponse>> {
-    const response = this.authService.login(req.user as User);
+    const response = await this.authService.login(req.user as User);
     return {
       message: 'Logged in successfully!',
       data: response,
@@ -39,7 +39,7 @@ export class AuthController {
     if (!createdUser)
       throw new InternalServerErrorException('Failed to create user ');
 
-    const response = this.authService.login(createdUser);
+    const response = await this.authService.login(createdUser);
     return {
       message: 'User registered successfully!',
       data: response,

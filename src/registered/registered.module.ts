@@ -16,5 +16,6 @@ import { ConfigModule } from '@nestjs/config';
   ],
   controllers: [RegisteredController],
   providers: [RegisteredService],
+  exports: [RegisteredService],
 })
-export class RegisteredModule {}
+export class RegisteredModule { }

@@ -28,4 +28,4 @@ import { StateModule } from 'src/state/state.module';
   providers: [AuthService, JwtStrategy, LocalStrategy],
   controllers: [AuthController],
 })
-export class AuthModule {}
+export class AuthModule { }
