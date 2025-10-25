@@ -191,6 +191,9 @@ export class WardService {
     foundUnit = new this.pollingUnitModel({
       ward,
       code: data.code,
+      name: data.name.trim().toUpperCase(),
+      registeredCount: data.registeredCount,
+      accreditedCount: data.accreditedCount,
     });
     foundUnit = await foundUnit.save();
     return foundUnit;
