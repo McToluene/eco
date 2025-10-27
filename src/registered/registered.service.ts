@@ -6,7 +6,7 @@ import { PollingUnit } from '../ward/schemas/polling.schema';
 import { RegisteredHelper } from './helpers/registered.helper';
 import { UploadApiResponse, UploadApiErrorResponse, v2 } from 'cloudinary';
 import { ConfigService } from '@nestjs/config';
-import { PollingUnitNotFoundException } from '../exceptions/business.exceptions';
+import { PollingUnitNotFoundException, InsufficientRegisteredVotersException } from '../exceptions/business.exceptions';
 import { StringUtils } from '../utils/common.utils';
 
 @Injectable()
@@ -160,5 +160,96 @@ export class RegisteredService {
     });
 
     return countsMap;
+  }
+
+  async moveRegisteredVoters(
+    fromPollingUnitId: string,
+    toPollingUnitId: string,
+    count: number,
+  ): Promise<void> {
+    this.logger.log(
+      `Moving ${count} registered voters from ${fromPollingUnitId} to ${toPollingUnitId}`,
+    );
+
+    // Verify both polling units exist
+    const [fromPu, toPu] = await Promise.all([
+      this.pollingUnitModel.findById(fromPollingUnitId).exec(),
+      this.pollingUnitModel.findById(toPollingUnitId).exec(),
+    ]);
+
+    if (!fromPu) {
+      throw new PollingUnitNotFoundException();
+    }
+
+    if (!toPu) {
+      throw new PollingUnitNotFoundException();
+    }
+
+    // Get the registered voters to move from the source polling unit
+    const votersToMove = await this.registeredModel
+      .find({ pollingUnit: fromPu })
+      .sort({ refIndex: 1 })
+      .limit(count)
+      .exec();
+
+    if (votersToMove.length < count) {
+      throw new InsufficientRegisteredVotersException();
+    }
+
+    // Get the maximum refIndex in the destination polling unit
+    const maxRefIndexInDestination = await this.registeredModel
+      .findOne({ pollingUnit: toPu })
+      .sort({ refIndex: -1 })
+      .select('refIndex')
+      .exec();
+
+    const startRefIndex = maxRefIndexInDestination
+      ? maxRefIndexInDestination.refIndex + 1
+      : 1;
+
+    // Update the polling unit and refIndex for the voters being moved
+    const voterIds = votersToMove.map((v) => v._id);
+    const bulkOps = votersToMove.map((voter, index) => ({
+      updateOne: {
+        filter: { _id: voter._id },
+        update: {
+          pollingUnit: toPu._id,
+          refIndex: startRefIndex + index,
+        },
+      },
+    }));
+
+    await this.registeredModel.bulkWrite(bulkOps);
+
+    // Reindex the remaining voters in the source polling unit
+    const remainingVoters = await this.registeredModel
+      .find({ pollingUnit: fromPu })
+      .sort({ refIndex: 1 })
+      .exec();
+
+    if (remainingVoters.length > 0) {
+      const reindexOps = remainingVoters.map((voter, index) => ({
+        updateOne: {
+          filter: { _id: voter._id },
+          update: { refIndex: index + 1 },
+        },
+      }));
+
+      await this.registeredModel.bulkWrite(reindexOps);
+    }
+
+    // Update registeredCount for both polling units
+    await Promise.all([
+      this.pollingUnitModel.findByIdAndUpdate(fromPollingUnitId, {
+        $inc: { registeredCount: -count },
+      }),
+      this.pollingUnitModel.findByIdAndUpdate(toPollingUnitId, {
+        $inc: { registeredCount: count },
+      }),
+    ]);
+
+    this.logger.log(
+      `Successfully moved ${count} registered voters and updated refIndex and registeredCount`,
+    );
   }
 }

@@ -60,3 +60,9 @@ export class PollingUnitAlreadyExistsException extends ConflictException {
         super(HTTP_MESSAGES.ERROR.POLLING_UNIT_ALREADY_EXISTS);
     }
 }
+
+export class InsufficientRegisteredVotersException extends BadRequestException {
+    constructor() {
+        super(HTTP_MESSAGES.ERROR.INSUFFICIENT_REGISTERED_VOTERS);
+    }
+}

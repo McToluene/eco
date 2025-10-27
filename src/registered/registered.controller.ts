@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
   HttpStatus,
   Param,
   Post,
+  Put,
   UploadedFile,
   UploadedFiles,
   UseGuards,
@@ -20,6 +22,8 @@ import { Registered } from './schemas/registered.schema';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { PollingUnitsGuard } from '../user/guards/polling-units.guard';
 import { RequirePollingUnits } from '../user/decorators/roles.decorator';
+import { MoveRegisteredDto } from './dtos/request/move-registered.request.dto';
+import { HTTP_MESSAGES } from '../constants/messages.constants';
 
 @Controller('registered')
 @UseGuards(JwtAuthGuard, PollingUnitsGuard)
@@ -77,6 +81,22 @@ export class RegisteredController {
     return {
       message: 'Registered voters picture uploaded fetched successfully!',
       data: response,
+      status: HttpStatus.OK,
+    };
+  }
+
+  @Put('/move')
+  async moveRegisteredVoters(
+    @Body() moveDto: MoveRegisteredDto,
+  ): Promise<BaseResponse<void>> {
+    await this.registeredService.moveRegisteredVoters(
+      moveDto.fromPollingUnitId,
+      moveDto.toPollingUnitId,
+      moveDto.count,
+    );
+    return {
+      message: HTTP_MESSAGES.SUCCESS.REGISTERED_VOTERS_MOVED,
+      data: null,
       status: HttpStatus.OK,
     };
   }
