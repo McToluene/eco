@@ -60,7 +60,7 @@ export class RegisteredService {
 
     return await this.registeredModel
       .find({ pollingUnit: pu })
-      .sort({ refIndex: 1 })
+      .sort({ name: 1 })
       .exec();
   }
 
