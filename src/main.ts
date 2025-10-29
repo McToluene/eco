@@ -6,6 +6,8 @@ import { DatabaseConfig } from './config/database.config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log'], // Optimize logging
+    bodyParser: true,
+    rawBody: true,
   });
 
   // Enable CORS with specific configuration
@@ -28,8 +30,13 @@ async function bootstrap() {
   const port = process.env.PORT || 3000;
   const server = await app.listen(port);
 
-  // Set reasonable timeout (30 minutes instead of 30 minutes)
-  server.setTimeout(30 * 60 * 1000); // 30 minutes
+  // Set timeout for long-running operations (e.g., bulk image uploads)
+  // 60 minutes for large file uploads
+  server.setTimeout(60 * 60 * 1000); // 60 minutes
+
+  // Set keep-alive timeout
+  server.keepAliveTimeout = 65 * 1000; // 65 seconds
+  server.headersTimeout = 66 * 1000; // 66 seconds (must be > keepAliveTimeout)
 
   console.log(`Application is running on: http://localhost:${port}`);
 }

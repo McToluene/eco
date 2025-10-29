@@ -68,7 +68,13 @@ export class RegisteredController {
   }
 
   @Post('/upload/picture/:pollingUnitId')
-  @UseInterceptors(FilesInterceptor('files'))
+  @UseInterceptors(
+    FilesInterceptor('files', 2000, {
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB per file
+      },
+    }),
+  )
   async uploadFile(
     @UploadedFiles() files: Array<Express.Multer.File>,
     @Param('pollingUnitId') pollingUnitId: string,
