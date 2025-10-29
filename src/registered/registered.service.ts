@@ -100,44 +100,94 @@ export class RegisteredService {
     files: Express.Multer.File[],
     pollingUnitId: string,
   ): Promise<void> {
-    const uploadedFiles = [];
     const pollingUnit = await this.pollingUnitModel
       .findById(pollingUnitId)
       .exec();
     if (!pollingUnit) throw new PollingUnitNotFoundException();
 
-    for (const file of files) {
-      if (file.originalname.includes('-')) {
-        const splitedName = file.originalname.split('-');
-        if (splitedName[1]) {
-          const splitedNumber = splitedName[1].split('.');
-          const result = await this.uploadFile(file);
-          uploadedFiles.push({ refIndex: splitedNumber[0], result });
+    // Extract refIndexes from filenames
+    const refIndexes = files
+      .map((file) => {
+        if (file.originalname.includes('-')) {
+          const splitedName = file.originalname.split('-');
+          if (splitedName[1]) {
+            const splitedNumber = splitedName[1].split('.');
+            return splitedNumber[0];
+          }
+        } else {
+          const splitedNumber = file.originalname.split('.');
+          return splitedNumber[0];
         }
-      } else {
-        const splitedNumber = file.originalname.split('.');
-        const v = await this.registeredModel.findOne({
-          refIndex: splitedNumber[0],
-          pollingUnit,
-        });
+        return null;
+      })
+      .filter(Boolean);
 
-        if (v) {
-          const result = await this.uploadFile(file);
-          uploadedFiles.push({
-            refIndex: splitedNumber[0],
-            result,
-          });
+    // Batch validate all refIndexes exist in the database
+    const validRefIndexes = await this.registeredModel
+      .find({
+        refIndex: { $in: refIndexes },
+        pollingUnit,
+      })
+      .select('refIndex')
+      .lean()
+      .exec();
+
+    const validRefIndexSet = new Set(
+      validRefIndexes.map((v) => v.refIndex.toString()),
+    );
+
+    // Upload files in parallel with concurrency limit
+    const CONCURRENT_UPLOADS = 10; // Adjust based on Cloudinary rate limits
+    const uploadPromises = [];
+
+    for (let i = 0; i < files.length; i += CONCURRENT_UPLOADS) {
+      const batch = files.slice(i, i + CONCURRENT_UPLOADS);
+      const batchPromises = batch.map(async (file) => {
+        let refIndex: string;
+        if (file.originalname.includes('-')) {
+          const splitedName = file.originalname.split('-');
+          if (splitedName[1]) {
+            const splitedNumber = splitedName[1].split('.');
+            refIndex = splitedNumber[0];
+          }
+        } else {
+          const splitedNumber = file.originalname.split('.');
+          refIndex = splitedNumber[0];
         }
-      }
+
+        if (refIndex && validRefIndexSet.has(refIndex)) {
+          try {
+            const result = await this.uploadFile(file);
+            return { refIndex, result };
+          } catch (error) {
+            this.logger.error(
+              `Failed to upload file ${file.originalname}: ${error.message}`,
+            );
+            return null;
+          }
+        }
+        return null;
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      uploadPromises.push(...batchResults.filter(Boolean));
     }
 
-    for (const up of uploadedFiles) {
-      await this.registeredModel.findOneAndUpdate(
-        {
-          refIndex: up.refIndex,
-          pollingUnit,
+    // Batch update database using bulkWrite
+    if (uploadPromises.length > 0) {
+      const bulkOps = uploadPromises.map((up) => ({
+        updateOne: {
+          filter: {
+            refIndex: parseInt(up.refIndex),
+            pollingUnit: pollingUnit,
+          },
+          update: { $set: { imageUrl: up.result.url } },
         },
-        { imageUrl: up.result.url },
+      }));
+
+      await this.registeredModel.bulkWrite(bulkOps as any);
+      this.logger.log(
+        `Successfully uploaded and updated ${uploadPromises.length} images`,
       );
     }
   }
