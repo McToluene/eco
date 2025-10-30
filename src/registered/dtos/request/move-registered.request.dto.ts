@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class MoveRegisteredDto {
     @IsNotEmpty()
@@ -13,4 +13,9 @@ export class MoveRegisteredDto {
     @IsNumber()
     @Min(1)
     count: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    refIndex?: number;
 }

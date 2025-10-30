@@ -99,6 +99,7 @@ export class RegisteredController {
       moveDto.fromPollingUnitId,
       moveDto.toPollingUnitId,
       moveDto.count,
+      moveDto.refIndex,
     );
     return {
       message: HTTP_MESSAGES.SUCCESS.REGISTERED_VOTERS_MOVED,

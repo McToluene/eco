@@ -216,9 +216,10 @@ export class RegisteredService {
     fromPollingUnitId: string,
     toPollingUnitId: string,
     count: number,
+    refIndex: number = 0,
   ): Promise<void> {
     this.logger.log(
-      `Moving ${count} registered voters from ${fromPollingUnitId} to ${toPollingUnitId}`,
+      `Moving ${count} registered voters from ${fromPollingUnitId} to ${toPollingUnitId} starting from refIndex ${refIndex}`,
     );
 
     // Verify both polling units exist
@@ -236,8 +237,13 @@ export class RegisteredService {
     }
 
     // Get the registered voters to move from the source polling unit
+    // If refIndex is 0, start from the beginning, otherwise start from the specified refIndex
+    const query = refIndex > 0
+      ? { pollingUnit: fromPu, refIndex: { $gte: refIndex } }
+      : { pollingUnit: fromPu };
+
     const votersToMove = await this.registeredModel
-      .find({ pollingUnit: fromPu })
+      .find(query)
       .sort({ refIndex: 1 })
       .limit(count)
       .exec();
