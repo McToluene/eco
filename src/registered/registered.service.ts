@@ -215,13 +215,9 @@ export class RegisteredService {
   async moveRegisteredVoters(
     fromPollingUnitId: string,
     toPollingUnitId: string,
-    count: number,
+    count?: number,
     refIndex: number = 0,
   ): Promise<void> {
-    this.logger.log(
-      `Moving ${count} registered voters from ${fromPollingUnitId} to ${toPollingUnitId} starting from refIndex ${refIndex}`,
-    );
-
     // Verify both polling units exist
     const [fromPu, toPu] = await Promise.all([
       this.pollingUnitModel.findById(fromPollingUnitId).exec(),
@@ -242,15 +238,31 @@ export class RegisteredService {
       ? { pollingUnit: fromPu, refIndex: { $gte: refIndex } }
       : { pollingUnit: fromPu };
 
-    const votersToMove = await this.registeredModel
-      .find(query)
-      .sort({ refIndex: 1 })
-      .limit(count)
-      .exec();
+    // If count is not provided, get all voters matching the query
+    let votersToMove;
+    if (count) {
+      votersToMove = await this.registeredModel
+        .find(query)
+        .sort({ refIndex: 1 })
+        .limit(count)
+        .exec();
 
-    if (votersToMove.length < count) {
-      throw new InsufficientRegisteredVotersException();
+      if (votersToMove.length < count) {
+        throw new InsufficientRegisteredVotersException();
+      }
+    } else {
+      // Move all voters matching the query
+      votersToMove = await this.registeredModel
+        .find(query)
+        .sort({ refIndex: 1 })
+        .exec();
     }
+
+    const actualCount = votersToMove.length;
+
+    this.logger.log(
+      `Moving ${actualCount} registered voters from ${fromPollingUnitId} to ${toPollingUnitId} starting from refIndex ${refIndex}`,
+    );
 
     // Get the maximum refIndex in the destination polling unit
     const maxRefIndexInDestination = await this.registeredModel
@@ -297,15 +309,15 @@ export class RegisteredService {
     // Update registeredCount for both polling units
     await Promise.all([
       this.pollingUnitModel.findByIdAndUpdate(fromPollingUnitId, {
-        $inc: { registeredCount: -count },
+        $inc: { registeredCount: -actualCount },
       }),
       this.pollingUnitModel.findByIdAndUpdate(toPollingUnitId, {
-        $inc: { registeredCount: count },
+        $inc: { registeredCount: actualCount },
       }),
     ]);
 
     this.logger.log(
-      `Successfully moved ${count} registered voters and updated refIndex and registeredCount`,
+      `Successfully moved ${actualCount} registered voters and updated refIndex and registeredCount`,
     );
   }
 }

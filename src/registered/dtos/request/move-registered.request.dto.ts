@@ -9,10 +9,10 @@ export class MoveRegisteredDto {
     @IsString()
     toPollingUnitId: string;
 
-    @IsNotEmpty()
+    @IsOptional()
     @IsNumber()
     @Min(1)
-    count: number;
+    count?: number;
 
     @IsOptional()
     @IsNumber()
