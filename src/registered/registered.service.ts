@@ -54,21 +54,45 @@ export class RegisteredService {
     await this.registeredModel.insertMany(registeredVoters);
   }
 
-  async findRegisteredVoters(pollingUnitId: string): Promise<Registered[]> {
+  async findRegisteredVoters(pollingUnitId: string, onlyWithoutImage: boolean = false): Promise<Registered[]> {
     const pu = await this.pollingUnitModel.findById(pollingUnitId).exec();
     if (!pu) throw new PollingUnitNotFoundException();
 
+    const filter: any = { pollingUnit: pu };
+    if (onlyWithoutImage) {
+      filter.$or = [
+        { imageUrl: { $exists: false } },
+        { imageUrl: null },
+        { imageUrl: '' },
+      ];
+    }
+
     return await this.registeredModel
-      .find({ pollingUnit: pu })
+      .find(filter)
       .sort({ name: 1 })
       .exec();
   }
 
-  async deleteRegistered(pollingUnitId: string): Promise<void> {
+  async deleteRegistered(pollingUnitId: string, onlyWithoutImage: boolean = false): Promise<number> {
     const pu = await this.pollingUnitModel.findById(pollingUnitId).exec();
     if (!pu) throw new PollingUnitNotFoundException();
 
-    await this.registeredModel.deleteMany({ pollingUnit: pu }).exec();
+    // Build filter: always scope to the polling unit
+    const filter: any = { pollingUnit: pu };
+
+    // If onlyWithoutImage flag is true, restrict deletion to records
+    // that do not have an `imageUrl` (null, empty string, or missing)
+    if (onlyWithoutImage) {
+      filter.$or = [
+        { imageUrl: { $exists: false } },
+        { imageUrl: null },
+        { imageUrl: '' },
+      ];
+    }
+
+    const result = await this.registeredModel.deleteMany(filter).exec();
+    // deletedCount may be undefined in some drivers, default to 0
+    return (result && (result as any).deletedCount) || 0;
   }
 
   async uploadFile(
@@ -233,35 +257,39 @@ export class RegisteredService {
     }
 
     // Get the registered voters to move from the source polling unit
-    // If refIndex is 0, start from the beginning, otherwise start from the specified refIndex
+    // If refIndex is provided, filter by refIndex, otherwise get all voters
     const query = refIndex > 0
       ? { pollingUnit: fromPu, refIndex: { $gte: refIndex } }
       : { pollingUnit: fromPu };
 
-    // If count is not provided, get all voters matching the query
+    // Get all voters matching the query for randomization
+    const allVoters = await this.registeredModel
+      .find(query)
+      .exec();
+
+    if (allVoters.length === 0) {
+      throw new InsufficientRegisteredVotersException();
+    }
+
+    // If count is not provided, move all voters; otherwise check if enough voters exist
     let votersToMove;
     if (count) {
-      votersToMove = await this.registeredModel
-        .find(query)
-        .sort({ refIndex: 1 })
-        .limit(count)
-        .exec();
-
-      if (votersToMove.length < count) {
+      if (allVoters.length < count) {
         throw new InsufficientRegisteredVotersException();
       }
+
+      // Randomize and select the specified count
+      const shuffled = this.shuffleArray(allVoters);
+      votersToMove = shuffled.slice(0, count);
     } else {
-      // Move all voters matching the query
-      votersToMove = await this.registeredModel
-        .find(query)
-        .sort({ refIndex: 1 })
-        .exec();
+      // Move all voters (randomized order)
+      votersToMove = this.shuffleArray(allVoters);
     }
 
     const actualCount = votersToMove.length;
 
     this.logger.log(
-      `Moving ${actualCount} registered voters from ${fromPollingUnitId} to ${toPollingUnitId} starting from refIndex ${refIndex}`,
+      `Moving ${actualCount} randomly selected registered voters from ${fromPollingUnitId} to ${toPollingUnitId}`,
     );
 
     // Get the maximum refIndex in the destination polling unit
@@ -319,5 +347,19 @@ export class RegisteredService {
     this.logger.log(
       `Successfully moved ${actualCount} registered voters and updated refIndex and registeredCount`,
     );
+  }
+
+  /**
+   * Fisher-Yates shuffle algorithm to randomize array
+   * @param array Array to shuffle
+   * @returns Shuffled copy of the array
+   */
+  private shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
   }
 }

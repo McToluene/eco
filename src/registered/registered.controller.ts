@@ -12,6 +12,7 @@ import {
   UploadedFiles,
   UseGuards,
   UseInterceptors,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { RegisteredService } from './registered.service';
@@ -44,9 +45,14 @@ export class RegisteredController {
   @RequirePollingUnits()
   async getReisgteredList(
     @Param('pollingUnitId') pollingUnitId: string,
+    @Query('withoutImage') withoutImage?: string,
   ): Promise<BaseResponse<Registered[]>> {
+    const onlyWithoutImage =
+      withoutImage === 'true' || withoutImage === '1' || withoutImage === 'yes';
+
     const registered = await this.registeredService.findRegisteredVoters(
       pollingUnitId,
+      onlyWithoutImage,
     );
     return {
       message: 'Registered voters fetched successfully!',
@@ -58,11 +64,18 @@ export class RegisteredController {
   @Delete('/:pollingUnitId')
   async deleteRegisteredList(
     @Param('pollingUnitId') pollingUnitId: string,
-  ): Promise<BaseResponse<void>> {
-    const empty = await this.registeredService.deleteRegistered(pollingUnitId);
+    @Query('withoutImage') withoutImage?: string,
+  ): Promise<BaseResponse<number>> {
+    const onlyWithoutImage =
+      withoutImage === 'true' || withoutImage === '1' || withoutImage === 'yes';
+
+    const deletedCount = await this.registeredService.deleteRegistered(
+      pollingUnitId,
+      onlyWithoutImage,
+    );
     return {
       message: 'Registered voters deleted successfully!',
-      data: empty,
+      data: deletedCount,
       status: HttpStatus.OK,
     };
   }
