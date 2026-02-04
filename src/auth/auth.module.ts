@@ -9,6 +9,7 @@ import { UserModule } from 'src/user/user.module';
 
 import { PassportModule } from '@nestjs/passport';
 import { StateModule } from 'src/state/state.module';
+import { WardModule } from 'src/ward/ward.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { StateModule } from 'src/state/state.module';
     }),
     UserModule,
     StateModule,
+    WardModule,
   ],
   providers: [AuthService, JwtStrategy, LocalStrategy],
   controllers: [AuthController],

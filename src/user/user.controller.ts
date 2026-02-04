@@ -19,7 +19,6 @@ import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
 import { UserType } from './enum/userType.enum';
-import { HTTP_MESSAGES } from '../constants/messages.constants';
 import { ResponseUtils } from '../utils/common.utils';
 import { Request } from 'express';
 

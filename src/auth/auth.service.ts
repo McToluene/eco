@@ -10,7 +10,8 @@ import TokenResponse from './dtos/response/token.response';
 import RegisterRequest from './dtos/request/register.request';
 import { UserType } from 'src/user/enum/userType.enum';
 import { StateService } from 'src/state/state.service';
-import { UserAlreadyExistsException, StateNotFoundException } from '../exceptions/business.exceptions';
+import { WardService } from 'src/ward/ward.service';
+import { UserAlreadyExistsException, StateNotFoundException, PollingUnitNotFoundException } from '../exceptions/business.exceptions';
 
 @Injectable()
 export class AuthService {
@@ -21,6 +22,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private stateStateService: StateService,
+    private wardService: WardService,
   ) { }
 
   async validateUser(userName: string, password: string): Promise<User> {
@@ -144,6 +146,22 @@ export class AuthService {
       }
     }
 
+    // Validate polling units if provided
+    let pollingUnits = [];
+    if (data.assignedPollingUnits && data.assignedPollingUnits.length > 0) {
+      // Remove duplicates
+      const uniquePollingUnitIds = [...new Set(data.assignedPollingUnits)];
+
+      pollingUnits = await Promise.all(
+        uniquePollingUnitIds.map(pollingUnitId => this.wardService.getPollingUnitById(pollingUnitId))
+      );
+
+      const invalidPollingUnits = pollingUnits.filter(unit => !unit);
+      if (invalidPollingUnits.length > 0) {
+        throw new PollingUnitNotFoundException();
+      }
+    }
+
     // Hash password and create user
     const hashedPassword = await this.hashPassword(data.password);
     const newUser: Partial<User> = {
@@ -151,7 +169,7 @@ export class AuthService {
       password: hashedPassword,
       states,
       userType: UserType.AGENT,
-      assignedPollingUnits: [],
+      assignedPollingUnits: pollingUnits,
       createdAt: new Date(),
     };
 
