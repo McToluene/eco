@@ -120,4 +120,37 @@ export class RegisteredController {
       status: HttpStatus.OK,
     };
   }
+
+  @Post('/bulk-upload/:wardId')
+  @UseInterceptors(
+    FilesInterceptor('files', 500, {
+      limits: {
+        fileSize: 50 * 1024 * 1024, // 50MB per file
+      },
+    }),
+  )
+  async bulkUploadFromFolder(
+    @UploadedFiles() files: Array<Express.Multer.File>,
+    @Param('wardId') wardId: string,
+  ): Promise<BaseResponse<{ 
+    success: number; 
+    failed: number; 
+    errors: string[];
+    pollingUnits: { pollingUnitId: string; code: string; dataCount: number }[];
+  }>> {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('Please upload CSV files');
+    }
+
+    const result = await this.registeredService.bulkUploadFromFolder(
+      wardId,
+      files,
+    );
+
+    return {
+      message: `Bulk upload completed. ${result.success} successful, ${result.failed} failed.`,
+      data: result,
+      status: HttpStatus.OK,
+    };
+  }
 }

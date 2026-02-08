@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { WardService } from './ward.service';
 import { Ward, WardSchema } from '../ward/schemas/ward.schema';
@@ -16,7 +16,7 @@ import { RegisteredModule } from '../registered/registered.module';
       { name: PollingUnit.name, schema: PollingUnitSchema },
     ]),
     LgaModule,
-    RegisteredModule,
+    forwardRef(() => RegisteredModule),
   ],
   providers: [WardService],
   exports: [WardService],

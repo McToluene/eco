@@ -376,4 +376,40 @@ export class WardService {
       }
     }
   }
+
+  async createPollingUnitByCodeAndName(
+    wardId: string,
+    code: string,
+    name: string,
+    registeredCount: number = 0,
+    accreditedCount: number = 0,
+  ): Promise<PollingUnit> {
+    this.logger.log(`Creating polling unit with code: ${code} and name: ${name}`);
+    const ward = await this.wardModel.findById(wardId);
+    if (!ward) throw new WardNotFoundException();
+
+    // Check if polling unit already exists
+    let foundUnit = await this.pollingUnitModel.findOne({
+      ward,
+      code: code,
+    });
+
+    if (foundUnit) {
+      this.logger.log(`Polling unit with code ${code} already exists, returning existing unit`);
+      return foundUnit;
+    }
+
+    // Create new polling unit
+    foundUnit = new this.pollingUnitModel({
+      ward,
+      code: code,
+      name: name.trim().toUpperCase(),
+      registeredCount,
+      accreditedCount,
+    });
+
+    foundUnit = await foundUnit.save();
+    this.logger.log(`Created polling unit: ${foundUnit._id}`);
+    return foundUnit;
+  }
 }

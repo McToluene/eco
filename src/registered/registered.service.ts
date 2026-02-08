@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Registered } from './schemas/registered.schema';
 import { Model } from 'mongoose';
@@ -8,6 +8,7 @@ import { UploadApiResponse, UploadApiErrorResponse, v2 } from 'cloudinary';
 import { ConfigService } from '@nestjs/config';
 import { PollingUnitNotFoundException, InsufficientRegisteredVotersException } from '../exceptions/business.exceptions';
 import { StringUtils } from '../utils/common.utils';
+import { WardService } from '../ward/ward.service';
 
 @Injectable()
 export class RegisteredService {
@@ -20,6 +21,8 @@ export class RegisteredService {
     @InjectModel(PollingUnit.name)
     private pollingUnitModel: Model<PollingUnit>,
     config: ConfigService,
+    @Inject(forwardRef(() => WardService))
+    private wardService: WardService,
   ) {
     v2.config({
       cloud_name: config.get<string>('CLOUDINARY_CLOUD_NAME'),
@@ -362,4 +365,115 @@ export class RegisteredService {
     }
     return shuffled;
   }
+
+  async bulkUploadFromFolder(
+    wardId: string,
+    files: Express.Multer.File[],
+  ): Promise<{ 
+    success: number; 
+    failed: number; 
+    errors: string[];
+    pollingUnits: { pollingUnitId: string; code: string; dataCount: number }[];
+  }> {
+    this.logger.log(`Processing bulk upload for ward: ${wardId}`);
+    
+    let successCount = 0;
+    let failedCount = 0;
+    const errors: string[] = [];
+    const pollingUnits: { pollingUnitId: string; code: string; dataCount: number }[] = [];
+
+    // Filter files that end with "_cleaned"
+    const cleanedFiles = files.filter(file => {
+      const nameWithoutExt = file.originalname.replace(/\.(csv|CSV)$/, '');
+      return nameWithoutExt.endsWith('_cleaned');
+    });
+
+    this.logger.log(`Found ${cleanedFiles.length} cleaned CSV files to process`);
+
+    for (const file of cleanedFiles) {
+      try {
+        // Extract filename without extension
+        const nameWithoutExt = file.originalname.replace(/\.(csv|CSV)$/, '');
+        
+        // Remove "_cleaned" suffix
+        const baseName = nameWithoutExt.replace(/_cleaned$/i, '');
+        
+        // Split by underscore to get code and name
+        const parts = baseName.split('_');
+        
+        if (parts.length < 2) {
+          errors.push(`Invalid filename format: ${file.originalname}. Expected format: CODE_NAME_cleaned.csv`);
+          failedCount++;
+          continue;
+        }
+
+        // First part is the code
+        const code = parts[0];
+        
+        // Rest is the name (replace underscores with spaces, remove any remaining "_cleaned")
+        let name = parts.slice(1).join(' ').replace(/_cleaned/gi, '').trim();
+
+        this.logger.log(`Processing file: ${file.originalname} - Code: ${code}, Name: ${name}`);
+
+        // Process CSV data first to get the count
+        const data = await RegisteredHelper.processFileCsv(file);
+
+        if (!data || data.length === 0) {
+          errors.push(`No data found in file: ${file.originalname}`);
+          failedCount++;
+          continue;
+        }
+
+        const voterCount = data.length;
+
+        // Create polling unit with voter counts
+        const pollingUnit = await this.wardService.createPollingUnitByCodeAndName(
+          wardId,
+          code,
+          name,
+          voterCount,
+          voterCount,
+        );
+
+        // Create registered voters
+        const registeredVoters: Registered[] = data.map((row, i) => {
+          const voter = new Registered();
+          voter.name = row['NAME'];
+          voter.id = row['ID'];
+          voter.gender = row['GENDER'];
+          voter.dob = row['DOB'];
+          voter.pollingUnit = pollingUnit;
+          voter.refIndex = i + 1;
+          return voter;
+        });
+
+        // Insert voters
+        await this.registeredModel.insertMany(registeredVoters);
+
+        // Add to successful results
+        pollingUnits.push({
+          pollingUnitId: (pollingUnit as any)._id.toString(),
+          code: code,
+          dataCount: data.length,
+        });
+
+        this.logger.log(`Successfully uploaded ${data.length} voters for polling unit ${code} - ${name}`);
+        successCount++;
+      } catch (error) {
+        this.logger.error(`Error processing file ${file.originalname}: ${error.message}`);
+        errors.push(`${file.originalname}: ${error.message}`);
+        failedCount++;
+      }
+    }
+
+    this.logger.log(`Bulk upload completed. Success: ${successCount}, Failed: ${failedCount}`);
+    
+    return {
+      success: successCount,
+      failed: failedCount,
+      errors,
+      pollingUnits,
+    };
+  }
 }
+
