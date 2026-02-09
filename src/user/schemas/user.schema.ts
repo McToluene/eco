@@ -24,6 +24,9 @@ export class User {
   @Prop({ type: String, enum: UserType, default: UserType.AGENT })
   userType: UserType;
 
+  @Prop({ type: Boolean, default: false })
+  isDisabled: boolean;
+
   @Prop({
     type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'PollingUnit' }],
     default: [],

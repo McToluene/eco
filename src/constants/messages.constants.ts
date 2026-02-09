@@ -31,6 +31,7 @@ export const HTTP_MESSAGES = {
         INSUFFICIENT_REGISTERED_VOTERS: 'Insufficient registered voters in source polling unit',
         POLLING_UNIT_NOT_IN_STATE: 'One or more polling units do not belong to the specified state',
         INVALID_CREDENTIALS: 'Invalid login credentials',
+        ACCOUNT_DISABLED: 'Account has been disabled. Please contact administrator.',
     },
 } as const;
 

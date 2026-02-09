@@ -28,8 +28,12 @@ export class AuthService {
   async validateUser(userName: string, password: string): Promise<User> {
     let confirmedUser: User;
     const user = await this.userService.findOne(userName);
-    if (user && (await bcrypt.compare(password, user.password)))
+    if (user && (await bcrypt.compare(password, user.password))) {
+      if ((user as any).isDisabled) {
+        return null;
+      }
       confirmedUser = user;
+    }
     return confirmedUser;
   }
 
