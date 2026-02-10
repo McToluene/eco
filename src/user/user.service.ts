@@ -254,7 +254,7 @@ export class UserService {
   async assignPollingUnits(userId: string, assignDto: AssignPollingUnitsRequest): Promise<UserResponse> {
     this.logger.log('Assigning polling units to user');
 
-    // Remove duplicates
+    // Remove duplicates from incoming list
     const uniquePollingUnitIds = [...new Set(assignDto.pollingUnitIds)];
 
     // Validate polling units exist
@@ -266,12 +266,30 @@ export class UserService {
       throw new PollingUnitNotFoundException();
     }
 
+    // Get user's existing polling units to avoid duplicates
+    const existingUser = await this.userModel.findById(userId).select('assignedPollingUnits');
+    const existingPollingUnitIds = new Set(
+      (existingUser?.assignedPollingUnits || []).map(pu => pu.toString())
+    );
+
+    // Filter out polling units that already exist
+    const newPollingUnits = pollingUnits.filter(
+      pu => !existingPollingUnitIds.has(pu._id.toString())
+    );
+
+    if (newPollingUnits.length === 0) {
+      this.logger.log('No new polling units to add - all already assigned');
+      return this.formatUserResponse(await this.findById(userId));
+    }
+
+    // Add only new polling units
     const updatedUser = await this.userModel.findByIdAndUpdate(
       userId,
-      { assignedPollingUnits: pollingUnits },
+      { $push: { assignedPollingUnits: { $each: newPollingUnits.map(pu => pu._id) } } },
       { new: true }
     );
 
+    this.logger.log(`Added ${newPollingUnits.length} new polling units to user`);
     return this.formatUserResponse(await this.findById(updatedUser._id.toString()));
   }
 
