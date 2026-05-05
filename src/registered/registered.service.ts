@@ -225,6 +225,40 @@ export class RegisteredService {
     }
   }
 
+  async syncPollingUnitCounts(
+    pollingUnitId: string,
+  ): Promise<{ registeredCount: number; accreditedCount: number }> {
+    const pu = await this.pollingUnitModel.findById(pollingUnitId).exec();
+    if (!pu) throw new PollingUnitNotFoundException();
+
+    const [registeredCount, accreditedCount] = await Promise.all([
+      this.registeredModel.countDocuments({ pollingUnit: pu }),
+      this.registeredModel.countDocuments({
+        pollingUnit: pu,
+        imageUrl: { $exists: true, $nin: [null, ''] },
+      }),
+    ]);
+
+    await this.pollingUnitModel.findByIdAndUpdate(pollingUnitId, {
+      registeredCount,
+      accreditedCount,
+    });
+
+    return { registeredCount, accreditedCount };
+  }
+
+  async syncPollingUnitCountsBulk(
+    pollingUnitIds: string[],
+  ): Promise<{ pollingUnitId: string; registeredCount: number; accreditedCount: number }[]> {
+    const results = await Promise.all(
+      pollingUnitIds.map(async (id) => {
+        const { registeredCount, accreditedCount } = await this.syncPollingUnitCounts(id);
+        return { pollingUnitId: id, registeredCount, accreditedCount };
+      }),
+    );
+    return results;
+  }
+
   async countRegisteredVotersByPollingUnit(pollingUnitId: string): Promise<number> {
     this.logger.log('Counting registered voters for polling unit');
     return await this.registeredModel.countDocuments({ pollingUnit: pollingUnitId });
@@ -396,11 +430,12 @@ export class RegisteredService {
       throw new DestinationPollingUnitNotFoundException();
     }
 
-    const query = refIndex !== undefined
-      ? { pollingUnit: fromPu, refIndex: { $gte: refIndex } }
-      : { pollingUnit: fromPu };
+    const baseQuery: any = { pollingUnit: fromPu, usedForDuplicate: { $ne: true } };
+    if (refIndex !== undefined) {
+      baseQuery.refIndex = { $gte: refIndex };
+    }
 
-    const allVoters = await this.registeredModel.find(query).exec();
+    const allVoters = await this.registeredModel.find(baseQuery).exec();
 
     if (allVoters.length === 0) {
       throw new InsufficientRegisteredVotersException();
@@ -442,6 +477,17 @@ export class RegisteredService {
     }));
 
     await this.registeredModel.insertMany(copies);
+
+    // Mark source records as used so they cannot be duplicated to another PU
+    const usedSourceIds = votersToCopy.map((v) => v._id);
+    await this.registeredModel.bulkWrite(
+      usedSourceIds.map((id) => ({
+        updateOne: {
+          filter: { _id: id },
+          update: { $set: { usedForDuplicate: true } },
+        },
+      })),
+    );
 
     await this.pollingUnitModel.findByIdAndUpdate(toPollingUnitId, {
       $inc: { registeredCount: actualCount },

@@ -27,6 +27,7 @@ import { RequirePollingUnits, Roles } from '../user/decorators/roles.decorator';
 import { UserType } from '../user/enum/userType.enum';
 import { MoveRegisteredDto } from './dtos/request/move-registered.request.dto';
 import { DuplicateRegisteredDto } from './dtos/request/duplicate-registered.request.dto';
+import { SyncCountsBulkDto } from './dtos/request/sync-counts.request.dto';
 import { HTTP_MESSAGES } from '../constants/messages.constants';
 
 @Controller('registered')
@@ -68,6 +69,34 @@ export class RegisteredController {
     return {
       message: HTTP_MESSAGES.SUCCESS.REGISTERED_VOTERS_DUPLICATED,
       data: null,
+      status: HttpStatus.OK,
+    };
+  }
+
+  @Put('/sync-counts/:pollingUnitId')
+  @UseGuards(RolesGuard)
+  @Roles(UserType.ADMIN)
+  async syncPollingUnitCounts(
+    @Param('pollingUnitId') pollingUnitId: string,
+  ): Promise<BaseResponse<{ registeredCount: number; accreditedCount: number }>> {
+    const result = await this.registeredService.syncPollingUnitCounts(pollingUnitId);
+    return {
+      message: HTTP_MESSAGES.SUCCESS.POLLING_UNIT_COUNTS_SYNCED,
+      data: result,
+      status: HttpStatus.OK,
+    };
+  }
+
+  @Put('/sync-counts')
+  @UseGuards(RolesGuard)
+  @Roles(UserType.ADMIN)
+  async syncPollingUnitCountsBulk(
+    @Body() dto: SyncCountsBulkDto,
+  ): Promise<BaseResponse<{ pollingUnitId: string; registeredCount: number; accreditedCount: number }[]>> {
+    const results = await this.registeredService.syncPollingUnitCountsBulk(dto.pollingUnitIds);
+    return {
+      message: HTTP_MESSAGES.SUCCESS.POLLING_UNIT_COUNTS_SYNCED,
+      data: results,
       status: HttpStatus.OK,
     };
   }

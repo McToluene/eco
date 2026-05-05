@@ -27,6 +27,9 @@ export class Registered {
   @Prop({ default: false })
   isDuplicated: boolean;
 
+  @Prop({ default: false })
+  usedForDuplicate: boolean;
+
   @Prop({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'PollingUnit',

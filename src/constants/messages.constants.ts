@@ -15,6 +15,7 @@ export const HTTP_MESSAGES = {
         REGISTERED_VOTERS_DELETED: 'Registered voters deleted successfully!',
         REGISTERED_VOTERS_MOVED: 'Registered voters moved successfully!',
         REGISTERED_VOTERS_DUPLICATED: 'Registered voters duplicated successfully!',
+        POLLING_UNIT_COUNTS_SYNCED: 'Polling unit counts synced successfully!',
         PICTURE_UPLOADED: 'Registered voters picture uploaded successfully!',
     },
     ERROR: {
