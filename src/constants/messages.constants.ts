@@ -14,6 +14,7 @@ export const HTTP_MESSAGES = {
         REGISTERED_VOTERS_FETCHED: 'Registered voters fetched successfully!',
         REGISTERED_VOTERS_DELETED: 'Registered voters deleted successfully!',
         REGISTERED_VOTERS_MOVED: 'Registered voters moved successfully!',
+        REGISTERED_VOTERS_DUPLICATED: 'Registered voters duplicated successfully!',
         PICTURE_UPLOADED: 'Registered voters picture uploaded successfully!',
     },
     ERROR: {
@@ -29,6 +30,9 @@ export const HTTP_MESSAGES = {
         STATE_NOT_FOUND: 'State not found',
         POLLING_UNIT_NOT_FOUND: 'Polling Unit not found!',
         INSUFFICIENT_REGISTERED_VOTERS: 'Insufficient registered voters in source polling unit',
+        SOURCE_POLLING_UNIT_NOT_FOUND: 'Source polling unit not found',
+        DESTINATION_POLLING_UNIT_NOT_FOUND: 'Destination polling unit not found',
+        SAME_POLLING_UNIT: 'Source and destination polling units must be different',
         POLLING_UNIT_NOT_IN_STATE: 'One or more polling units do not belong to the specified state',
         INVALID_CREDENTIALS: 'Invalid login credentials',
         ACCOUNT_DISABLED: 'Account has been disabled. Please contact administrator.',

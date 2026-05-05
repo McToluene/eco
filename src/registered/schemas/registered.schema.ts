@@ -24,6 +24,9 @@ export class Registered {
   @Prop()
   imageUrl: string;
 
+  @Prop({ default: false })
+  isDuplicated: boolean;
+
   @Prop({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'PollingUnit',

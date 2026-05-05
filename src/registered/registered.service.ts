@@ -6,7 +6,13 @@ import { PollingUnit } from '../ward/schemas/polling.schema';
 import { RegisteredHelper } from './helpers/registered.helper';
 import { UploadApiResponse, UploadApiErrorResponse, v2 } from 'cloudinary';
 import { ConfigService } from '@nestjs/config';
-import { PollingUnitNotFoundException, InsufficientRegisteredVotersException } from '../exceptions/business.exceptions';
+import {
+  DestinationPollingUnitNotFoundException,
+  InsufficientRegisteredVotersException,
+  PollingUnitNotFoundException,
+  SamePollingUnitException,
+  SourcePollingUnitNotFoundException,
+} from '../exceptions/business.exceptions';
 import { StringUtils } from '../utils/common.utils';
 import { WardService } from '../ward/ward.service';
 
@@ -243,25 +249,26 @@ export class RegisteredService {
     fromPollingUnitId: string,
     toPollingUnitId: string,
     count?: number,
-    refIndex: number = 0,
+    refIndex?: number,
   ): Promise<void> {
-    // Verify both polling units exist
+    if (fromPollingUnitId === toPollingUnitId) {
+      throw new SamePollingUnitException();
+    }
+
     const [fromPu, toPu] = await Promise.all([
       this.pollingUnitModel.findById(fromPollingUnitId).exec(),
       this.pollingUnitModel.findById(toPollingUnitId).exec(),
     ]);
 
     if (!fromPu) {
-      throw new PollingUnitNotFoundException();
+      throw new SourcePollingUnitNotFoundException();
     }
 
     if (!toPu) {
-      throw new PollingUnitNotFoundException();
+      throw new DestinationPollingUnitNotFoundException();
     }
 
-    // Get the registered voters to move from the source polling unit
-    // If refIndex is provided, filter by refIndex, otherwise get all voters
-    const query = refIndex > 0
+    const query = refIndex !== undefined
       ? { pollingUnit: fromPu, refIndex: { $gte: refIndex } }
       : { pollingUnit: fromPu };
 
@@ -364,6 +371,85 @@ export class RegisteredService {
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     return shuffled;
+  }
+
+  async duplicateRegisteredVoters(
+    fromPollingUnitId: string,
+    toPollingUnitId: string,
+    count?: number,
+    refIndex?: number,
+  ): Promise<void> {
+    if (fromPollingUnitId === toPollingUnitId) {
+      throw new SamePollingUnitException();
+    }
+
+    const [fromPu, toPu] = await Promise.all([
+      this.pollingUnitModel.findById(fromPollingUnitId).exec(),
+      this.pollingUnitModel.findById(toPollingUnitId).exec(),
+    ]);
+
+    if (!fromPu) {
+      throw new SourcePollingUnitNotFoundException();
+    }
+
+    if (!toPu) {
+      throw new DestinationPollingUnitNotFoundException();
+    }
+
+    const query = refIndex !== undefined
+      ? { pollingUnit: fromPu, refIndex: { $gte: refIndex } }
+      : { pollingUnit: fromPu };
+
+    const allVoters = await this.registeredModel.find(query).exec();
+
+    if (allVoters.length === 0) {
+      throw new InsufficientRegisteredVotersException();
+    }
+
+    let votersToCopy: typeof allVoters;
+    if (count) {
+      if (allVoters.length < count) {
+        throw new InsufficientRegisteredVotersException();
+      }
+      votersToCopy = this.shuffleArray(allVoters).slice(0, count);
+    } else {
+      votersToCopy = this.shuffleArray(allVoters);
+    }
+
+    const actualCount = votersToCopy.length;
+
+    this.logger.log(
+      `Duplicating ${actualCount} registered voters from ${fromPollingUnitId} to ${toPollingUnitId}`,
+    );
+
+    const maxRefInDest = await this.registeredModel
+      .findOne({ pollingUnit: toPu })
+      .sort({ refIndex: -1 })
+      .select('refIndex')
+      .exec();
+
+    const startRefIndex = maxRefInDest ? maxRefInDest.refIndex + 1 : 1;
+
+    const copies = votersToCopy.map((voter, index) => ({
+      name: voter.name,
+      id: voter.id,
+      gender: voter.gender,
+      dob: voter.dob,
+      imageUrl: voter.imageUrl,
+      pollingUnit: toPu._id,
+      refIndex: startRefIndex + index,
+      isDuplicated: true,
+    }));
+
+    await this.registeredModel.insertMany(copies);
+
+    await this.pollingUnitModel.findByIdAndUpdate(toPollingUnitId, {
+      $inc: { registeredCount: actualCount },
+    });
+
+    this.logger.log(
+      `Successfully duplicated ${actualCount} registered voters to ${toPollingUnitId}`,
+    );
   }
 
   async bulkUploadFromFolder(

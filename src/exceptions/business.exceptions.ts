@@ -66,3 +66,21 @@ export class InsufficientRegisteredVotersException extends BadRequestException {
         super(HTTP_MESSAGES.ERROR.INSUFFICIENT_REGISTERED_VOTERS);
     }
 }
+
+export class SourcePollingUnitNotFoundException extends NotFoundException {
+    constructor() {
+        super(HTTP_MESSAGES.ERROR.SOURCE_POLLING_UNIT_NOT_FOUND);
+    }
+}
+
+export class DestinationPollingUnitNotFoundException extends NotFoundException {
+    constructor() {
+        super(HTTP_MESSAGES.ERROR.DESTINATION_POLLING_UNIT_NOT_FOUND);
+    }
+}
+
+export class SamePollingUnitException extends BadRequestException {
+    constructor() {
+        super(HTTP_MESSAGES.ERROR.SAME_POLLING_UNIT);
+    }
+}

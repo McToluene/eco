@@ -21,15 +21,56 @@ import { Express } from 'express';
 import { BaseResponse } from '../dtos/response/base.response';
 import { Registered } from './schemas/registered.schema';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
+import { RolesGuard } from '../user/guards/roles.guard';
 import { PollingUnitsGuard } from '../user/guards/polling-units.guard';
-import { RequirePollingUnits } from '../user/decorators/roles.decorator';
+import { RequirePollingUnits, Roles } from '../user/decorators/roles.decorator';
+import { UserType } from '../user/enum/userType.enum';
 import { MoveRegisteredDto } from './dtos/request/move-registered.request.dto';
+import { DuplicateRegisteredDto } from './dtos/request/duplicate-registered.request.dto';
 import { HTTP_MESSAGES } from '../constants/messages.constants';
 
 @Controller('registered')
 @UseGuards(JwtAuthGuard, PollingUnitsGuard)
 export class RegisteredController {
   constructor(private readonly registeredService: RegisteredService) { }
+
+  @Put('/move')
+  @UseGuards(RolesGuard)
+  @Roles(UserType.ADMIN)
+  async moveRegisteredVoters(
+    @Body() moveDto: MoveRegisteredDto,
+  ): Promise<BaseResponse<void>> {
+    await this.registeredService.moveRegisteredVoters(
+      moveDto.fromPollingUnitId,
+      moveDto.toPollingUnitId,
+      moveDto.count,
+      moveDto.refIndex,
+    );
+    return {
+      message: HTTP_MESSAGES.SUCCESS.REGISTERED_VOTERS_MOVED,
+      data: null,
+      status: HttpStatus.OK,
+    };
+  }
+
+  @Put('/duplicate')
+  @UseGuards(RolesGuard)
+  @Roles(UserType.ADMIN)
+  async duplicateRegisteredVoters(
+    @Body() duplicateDto: DuplicateRegisteredDto,
+  ): Promise<BaseResponse<void>> {
+    await this.registeredService.duplicateRegisteredVoters(
+      duplicateDto.fromPollingUnitId,
+      duplicateDto.toPollingUnitId,
+      duplicateDto.count,
+      duplicateDto.refIndex,
+    );
+    return {
+      message: HTTP_MESSAGES.SUCCESS.REGISTERED_VOTERS_DUPLICATED,
+      data: null,
+      status: HttpStatus.OK,
+    };
+  }
 
   @Post('/:pollingUnitId')
   @UseInterceptors(FileInterceptor('file'))
@@ -100,23 +141,6 @@ export class RegisteredController {
     return {
       message: 'Registered voters picture uploaded fetched successfully!',
       data: response,
-      status: HttpStatus.OK,
-    };
-  }
-
-  @Put('/move')
-  async moveRegisteredVoters(
-    @Body() moveDto: MoveRegisteredDto,
-  ): Promise<BaseResponse<void>> {
-    await this.registeredService.moveRegisteredVoters(
-      moveDto.fromPollingUnitId,
-      moveDto.toPollingUnitId,
-      moveDto.count,
-      moveDto.refIndex,
-    );
-    return {
-      message: HTTP_MESSAGES.SUCCESS.REGISTERED_VOTERS_MOVED,
-      data: null,
       status: HttpStatus.OK,
     };
   }

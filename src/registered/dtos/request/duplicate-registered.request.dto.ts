@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
-export class MoveRegisteredDto {
+export class DuplicateRegisteredDto {
     @IsNotEmpty()
     @IsString()
     fromPollingUnitId: string;
