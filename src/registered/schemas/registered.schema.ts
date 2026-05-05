@@ -2,7 +2,15 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { HydratedDocument } from 'mongoose';
 import { PollingUnit } from '../../ward/schemas/polling.schema';
 
-@Schema()
+@Schema({
+  toJSON: {
+    transform: (_doc, ret) => {
+      delete ret.isDuplicated;
+      delete ret.usedForDuplicate;
+      return ret;
+    },
+  },
+})
 export class Registered {
   _id?: string;
 
