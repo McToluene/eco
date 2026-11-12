@@ -9,6 +9,7 @@ import { Model } from 'mongoose';
 import { Lga, LgaDocument } from './schemas/lga.schema';
 import LgaRequestDto from './dtos/request/lga.request.dto';
 import { StateService } from '../state/state.service';
+import { StateDocument } from '../state/schemas/state.schema';
 import { StateNotFoundException } from '../exceptions/business.exceptions';
 import { StringUtils } from '../utils/common.utils';
 
@@ -82,7 +83,7 @@ export class LgaService {
     stateCode: string,
     lgaCode: string,
     lgaName: string,
-  ): Promise<{ lga: LgaDocument; created: boolean }> {
+  ): Promise<{ state: StateDocument; lga: LgaDocument; created: boolean }> {
     const state = await this.stateService.findByCode(stateCode);
     if (!state) throw new StateNotFoundException();
 
@@ -97,7 +98,7 @@ export class LgaService {
         );
       }
       this.logger.log(`Using existing LGA ${existing.code} ${existing.name}`);
-      return { lga: existing, created: false };
+      return { state, lga: existing, created: false };
     }
 
     const lga = await new this.lgaModel({
@@ -108,7 +109,7 @@ export class LgaService {
     this.logger.log(
       `Created LGA ${lga.code} ${lga.name} in state ${state.name}`,
     );
-    return { lga, created: true };
+    return { state, lga, created: true };
   }
 
   async find(id: string): Promise<Lga | null> {

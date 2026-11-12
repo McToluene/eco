@@ -34,11 +34,19 @@ type ParsedPollingUnitFile = {
   rows: any[];
 };
 
+// created: false means the PU code already existed in the ward and was left untouched.
 type UploadedPollingUnit = {
-  pollingUnitId: string;
-  code: string;
+  _id: string;
   name: string;
-  dataCount: number;
+  registeredCount: number;
+  created: boolean;
+};
+
+type UploadSummary = {
+  files: number;
+  created: number;
+  skipped: number;
+  failed: number;
 };
 
 @Injectable()
@@ -641,11 +649,10 @@ export class RegisteredService {
     wardCode: string,
     files: Express.Multer.File[],
   ): Promise<{
-    ward: { _id: string; name: string; code: string; created: boolean };
-    success: number;
-    failed: number;
+    ward: { _id: string; code: string; name: string; created: boolean };
+    pollingUnits: Record<string, UploadedPollingUnit>;
+    summary: UploadSummary;
     errors: string[];
-    pollingUnits: UploadedPollingUnit[];
   }> {
     const { parsed, errors } = await this.parseUploadFiles(files);
 
@@ -655,23 +662,23 @@ export class RegisteredService {
       wardCode,
     );
 
-    const pollingUnits = await this.createPollingUnitsWithVoters(
+    const { pollingUnits, summary } = await this.createPollingUnitsWithVoters(
       ward,
       parsed,
       errors,
+      files.length,
     );
 
     return {
       ward: {
         _id: ward._id.toString(),
-        name: ward.name,
         code: ward.code,
+        name: ward.name,
         created,
       },
-      success: pollingUnits.length,
-      failed: files.length - pollingUnits.length,
-      errors,
       pollingUnits,
+      summary,
+      errors,
     };
   }
 
@@ -684,12 +691,12 @@ export class RegisteredService {
     wardName: string,
     files: Express.Multer.File[],
   ): Promise<{
-    lga: { _id: string; name: string; code: string; created: boolean };
-    ward: { _id: string; name: string; code: string; created: boolean };
-    success: number;
-    failed: number;
+    state: { _id: string; code: string; name: string };
+    lga: { _id: string; code: string; name: string; created: boolean };
+    ward: { _id: string; code: string; name: string; created: boolean };
+    pollingUnits: Record<string, UploadedPollingUnit>;
+    summary: UploadSummary;
     errors: string[];
-    pollingUnits: UploadedPollingUnit[];
   }> {
     const match = /^(\d+)-(\d+)-(\d+)$/.exec(folderCode.trim());
     if (!match) {
@@ -701,8 +708,11 @@ export class RegisteredService {
 
     const { parsed, errors } = await this.parseUploadFiles(files);
 
-    const { lga, created: lgaCreated } =
-      await this.lgaService.findOrCreateByCode(stateCode, lgaCode, lgaName);
+    const {
+      state,
+      lga,
+      created: lgaCreated,
+    } = await this.lgaService.findOrCreateByCode(stateCode, lgaCode, lgaName);
 
     const { ward, created: wardCreated } =
       await this.wardService.findOrCreateWard(
@@ -711,29 +721,34 @@ export class RegisteredService {
         wardCode,
       );
 
-    const pollingUnits = await this.createPollingUnitsWithVoters(
+    const { pollingUnits, summary } = await this.createPollingUnitsWithVoters(
       ward,
       parsed,
       errors,
+      files.length,
     );
 
     return {
+      state: {
+        _id: state._id.toString(),
+        code: state.code,
+        name: state.name,
+      },
       lga: {
         _id: lga._id.toString(),
-        name: lga.name,
         code: lga.code,
+        name: lga.name,
         created: lgaCreated,
       },
       ward: {
         _id: ward._id.toString(),
-        name: ward.name,
         code: ward.code,
+        name: ward.name,
         created: wardCreated,
       },
-      success: pollingUnits.length,
-      failed: files.length - pollingUnits.length,
-      errors,
       pollingUnits,
+      summary,
+      errors,
     };
   }
 
@@ -807,24 +822,35 @@ export class RegisteredService {
     return { parsed, errors };
   }
 
-  // Creates one PU per parsed file with its voters (refIndex 1..n). Skips PU codes
-  // that already exist in the ward; a PU whose voter insert fails is rolled back.
+  // Creates one PU per parsed file with its voters (refIndex 1..n). PU codes that
+  // already exist in the ward are left untouched but still returned with their id;
+  // a PU whose voter insert fails is rolled back. Result is keyed by PU code.
   private async createPollingUnitsWithVoters(
     ward: WardDocument,
     parsed: ParsedPollingUnitFile[],
     errors: string[],
-  ): Promise<UploadedPollingUnit[]> {
-    const pollingUnits: UploadedPollingUnit[] = [];
+    fileCount: number,
+  ): Promise<{
+    pollingUnits: Record<string, UploadedPollingUnit>;
+    summary: UploadSummary;
+  }> {
+    const pollingUnits: Record<string, UploadedPollingUnit> = {};
+    let created = 0;
+    let skipped = 0;
 
     for (const item of parsed) {
-      const exists = await this.pollingUnitModel.exists({
-        ward: ward._id,
-        code: item.code,
-      });
-      if (exists) {
-        errors.push(
-          `${item.file}: polling unit ${item.code} already exists in ward ${ward.name}, skipped`,
-        );
+      const existing = await this.pollingUnitModel
+        .findOne({ ward: ward._id, code: item.code })
+        .select('_id name registeredCount')
+        .exec();
+      if (existing) {
+        pollingUnits[item.code] = {
+          _id: existing._id.toString(),
+          name: existing.name,
+          registeredCount: existing.registeredCount,
+          created: false,
+        };
+        skipped++;
         continue;
       }
 
@@ -850,12 +876,13 @@ export class RegisteredService {
         });
         await this.registeredModel.insertMany(voters);
 
-        pollingUnits.push({
-          pollingUnitId: pollingUnit._id.toString(),
-          code: item.code,
+        pollingUnits[item.code] = {
+          _id: pollingUnit._id.toString(),
           name: pollingUnit.name,
-          dataCount: item.rows.length,
-        });
+          registeredCount: item.rows.length,
+          created: true,
+        };
+        created++;
         this.logger.log(
           `Uploaded ${item.rows.length} voters to PU ${item.code} in ward ${ward.name}`,
         );
@@ -872,6 +899,14 @@ export class RegisteredService {
       }
     }
 
-    return pollingUnits;
+    return {
+      pollingUnits,
+      summary: {
+        files: fileCount,
+        created,
+        skipped,
+        failed: fileCount - created - skipped,
+      },
+    };
   }
 }

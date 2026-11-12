@@ -241,7 +241,7 @@ export class RegisteredController {
     );
 
     return {
-      message: `Upload completed. ${result.success} successful, ${result.failed} failed.`,
+      message: `Upload completed. ${result.summary.created} created, ${result.summary.skipped} skipped, ${result.summary.failed} failed.`,
       data: result,
       status: HttpStatus.CREATED,
     };
@@ -280,7 +280,7 @@ export class RegisteredController {
     );
 
     return {
-      message: `Upload completed. ${result.success} successful, ${result.failed} failed.`,
+      message: `Upload completed. ${result.summary.created} created, ${result.summary.skipped} skipped, ${result.summary.failed} failed.`,
       data: result,
       status: HttpStatus.CREATED,
     };
