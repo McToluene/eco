@@ -28,6 +28,8 @@ import { UserType } from '../user/enum/userType.enum';
 import { MoveRegisteredDto } from './dtos/request/move-registered.request.dto';
 import { DuplicateRegisteredDto } from './dtos/request/duplicate-registered.request.dto';
 import { SyncCountsBulkDto } from './dtos/request/sync-counts.request.dto';
+import { UploadWithWardDto } from './dtos/request/upload-with-ward.request.dto';
+import { UploadFolderDto } from './dtos/request/upload-folder.request.dto';
 import { HTTP_MESSAGES } from '../constants/messages.constants';
 
 @Controller('registered')
@@ -204,6 +206,83 @@ export class RegisteredController {
       message: `Bulk upload completed. ${result.success} successful, ${result.failed} failed.`,
       data: result,
       status: HttpStatus.OK,
+    };
+  }
+
+  // Creates the ward if needed, then one PU per file named CODE_NAME.csv.
+  @Post('/bulk-upload/lga/:lgaId')
+  @UseGuards(RolesGuard)
+  @Roles(UserType.ADMIN)
+  @UseInterceptors(
+    FilesInterceptor('files', 500, {
+      limits: {
+        fileSize: 50 * 1024 * 1024, // 50MB per file
+      },
+    }),
+  )
+  async uploadWithWard(
+    @UploadedFiles() files: Array<Express.Multer.File>,
+    @Param('lgaId') lgaId: string,
+    @Body() body: UploadWithWardDto,
+  ): Promise<
+    BaseResponse<Awaited<ReturnType<RegisteredService['uploadWithWard']>>>
+  > {
+    if (!files || files.length === 0) {
+      throw new BadRequestException(
+        'Please upload at least one CSV or XLSX file',
+      );
+    }
+
+    const result = await this.registeredService.uploadWithWard(
+      lgaId,
+      body.wardName,
+      body.wardCode,
+      files,
+    );
+
+    return {
+      message: `Upload completed. ${result.success} successful, ${result.failed} failed.`,
+      data: result,
+      status: HttpStatus.CREATED,
+    };
+  }
+
+  // Folder upload: folderCode is STATE-LGA-WARD (e.g. 14-01-02). Creates the LGA
+  // and ward if needed, then one PU per file named CODE_NAME.csv.
+  @Post('/bulk-upload/folder/:folderCode')
+  @UseGuards(RolesGuard)
+  @Roles(UserType.ADMIN)
+  @UseInterceptors(
+    FilesInterceptor('files', 500, {
+      limits: {
+        fileSize: 50 * 1024 * 1024, // 50MB per file
+      },
+    }),
+  )
+  async uploadFolder(
+    @UploadedFiles() files: Array<Express.Multer.File>,
+    @Param('folderCode') folderCode: string,
+    @Body() body: UploadFolderDto,
+  ): Promise<
+    BaseResponse<Awaited<ReturnType<RegisteredService['uploadFolder']>>>
+  > {
+    if (!files || files.length === 0) {
+      throw new BadRequestException(
+        'Please upload at least one CSV or XLSX file',
+      );
+    }
+
+    const result = await this.registeredService.uploadFolder(
+      folderCode,
+      body.lgaName,
+      body.wardName,
+      files,
+    );
+
+    return {
+      message: `Upload completed. ${result.success} successful, ${result.failed} failed.`,
+      data: result,
+      status: HttpStatus.CREATED,
     };
   }
 }

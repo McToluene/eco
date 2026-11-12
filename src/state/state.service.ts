@@ -48,6 +48,10 @@ export class StateService {
     return await this.stateModel.find();
   }
 
+  async findByCode(code: string): Promise<StateDocument | null> {
+    return await this.stateModel.findOne({ code: code.trim() });
+  }
+
   async find(id: string): Promise<State | null> {
     this.logger.log('Finding state');
     return await this.stateModel.findOne({ id });

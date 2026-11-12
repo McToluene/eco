@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import mongoose, { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { Ward, WardDocument } from './schemas/ward.schema';
@@ -375,6 +375,42 @@ export class WardService {
         }
       }
     }
+  }
+
+  // Finds the ward by code in the LGA, or creates it.
+  async findOrCreateWard(
+    lgaId: string,
+    name: string,
+    code: string,
+  ): Promise<{ ward: WardDocument; created: boolean }> {
+    if (!mongoose.isValidObjectId(lgaId)) throw new LgaNotFoundException();
+    const lga = await this.lgaService.find(lgaId);
+    if (!lga) throw new LgaNotFoundException();
+
+    const wardName = StringUtils.normalizeString(name);
+    const wardCode = code.trim();
+
+    const existing = await this.wardModel.findOne({
+      lga: lgaId,
+      code: wardCode,
+    });
+    if (existing) {
+      if (existing.name !== wardName) {
+        throw new ConflictException(
+          `Ward code ${wardCode} already belongs to ward ${existing.name} in this LGA`,
+        );
+      }
+      this.logger.log(`Using existing ward ${existing.code} ${existing.name}`);
+      return { ward: existing, created: false };
+    }
+
+    const ward = await new this.wardModel({
+      lga: lgaId,
+      name: wardName,
+      code: wardCode,
+    }).save();
+    this.logger.log(`Created ward ${ward.code} ${ward.name}`);
+    return { ward, created: true };
   }
 
   async createPollingUnitByCodeAndName(

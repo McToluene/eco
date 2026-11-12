@@ -6,6 +6,7 @@ import { Registered, RegisteredSchema } from './schemas/registered.schema';
 import { PollingUnit, PollingUnitSchema } from '../ward/schemas/polling.schema';
 import { ConfigModule } from '@nestjs/config';
 import { WardModule } from '../ward/ward.module';
+import { LgaModule } from '../lga/lga.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { WardModule } from '../ward/ward.module';
       { name: PollingUnit.name, schema: PollingUnitSchema },
     ]),
     forwardRef(() => WardModule),
+    LgaModule,
   ],
   controllers: [RegisteredController],
   providers: [RegisteredService],

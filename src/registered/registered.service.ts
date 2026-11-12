@@ -1,8 +1,17 @@
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Registered } from './schemas/registered.schema';
 import { Model } from 'mongoose';
-import { PollingUnit } from '../ward/schemas/polling.schema';
+import {
+  PollingUnit,
+  PollingUnitDocument,
+} from '../ward/schemas/polling.schema';
 import { RegisteredHelper } from './helpers/registered.helper';
 import { UploadApiResponse, UploadApiErrorResponse, v2 } from 'cloudinary';
 import { ConfigService } from '@nestjs/config';
@@ -15,6 +24,22 @@ import {
 } from '../exceptions/business.exceptions';
 import { StringUtils } from '../utils/common.utils';
 import { WardService } from '../ward/ward.service';
+import { WardDocument } from '../ward/schemas/ward.schema';
+import { LgaService } from '../lga/lga.service';
+
+type ParsedPollingUnitFile = {
+  file: string;
+  code: string;
+  name: string;
+  rows: any[];
+};
+
+type UploadedPollingUnit = {
+  pollingUnitId: string;
+  code: string;
+  name: string;
+  dataCount: number;
+};
 
 @Injectable()
 export class RegisteredService {
@@ -29,6 +54,7 @@ export class RegisteredService {
     config: ConfigService,
     @Inject(forwardRef(() => WardService))
     private wardService: WardService,
+    private lgaService: LgaService,
   ) {
     v2.config({
       cloud_name: config.get<string>('CLOUDINARY_CLOUD_NAME'),
@@ -607,5 +633,245 @@ export class RegisteredService {
       pollingUnits,
     };
   }
-}
 
+  // Files are parsed before any write; existing PU codes in the ward are skipped.
+  async uploadWithWard(
+    lgaId: string,
+    wardName: string,
+    wardCode: string,
+    files: Express.Multer.File[],
+  ): Promise<{
+    ward: { _id: string; name: string; code: string; created: boolean };
+    success: number;
+    failed: number;
+    errors: string[];
+    pollingUnits: UploadedPollingUnit[];
+  }> {
+    const { parsed, errors } = await this.parseUploadFiles(files);
+
+    const { ward, created } = await this.wardService.findOrCreateWard(
+      lgaId,
+      wardName,
+      wardCode,
+    );
+
+    const pollingUnits = await this.createPollingUnitsWithVoters(
+      ward,
+      parsed,
+      errors,
+    );
+
+    return {
+      ward: {
+        _id: ward._id.toString(),
+        name: ward.name,
+        code: ward.code,
+        created,
+      },
+      success: pollingUnits.length,
+      failed: files.length - pollingUnits.length,
+      errors,
+      pollingUnits,
+    };
+  }
+
+  // folderCode is STATE-LGA-WARD (e.g. 14-01-02). The state must already exist;
+  // the LGA and ward are created if missing. Nothing is written until every file
+  // has parsed and the state is found; existing PU codes in the ward are skipped.
+  async uploadFolder(
+    folderCode: string,
+    lgaName: string,
+    wardName: string,
+    files: Express.Multer.File[],
+  ): Promise<{
+    lga: { _id: string; name: string; code: string; created: boolean };
+    ward: { _id: string; name: string; code: string; created: boolean };
+    success: number;
+    failed: number;
+    errors: string[];
+    pollingUnits: UploadedPollingUnit[];
+  }> {
+    const match = /^(\d+)-(\d+)-(\d+)$/.exec(folderCode.trim());
+    if (!match) {
+      throw new BadRequestException(
+        `Invalid folder code ${folderCode}, expected STATE-LGA-WARD (e.g. 14-01-02)`,
+      );
+    }
+    const [, stateCode, lgaCode, wardCode] = match;
+
+    const { parsed, errors } = await this.parseUploadFiles(files);
+
+    const { lga, created: lgaCreated } =
+      await this.lgaService.findOrCreateByCode(stateCode, lgaCode, lgaName);
+
+    const { ward, created: wardCreated } =
+      await this.wardService.findOrCreateWard(
+        lga._id.toString(),
+        wardName,
+        wardCode,
+      );
+
+    const pollingUnits = await this.createPollingUnitsWithVoters(
+      ward,
+      parsed,
+      errors,
+    );
+
+    return {
+      lga: {
+        _id: lga._id.toString(),
+        name: lga.name,
+        code: lga.code,
+        created: lgaCreated,
+      },
+      ward: {
+        _id: ward._id.toString(),
+        name: ward.name,
+        code: ward.code,
+        created: wardCreated,
+      },
+      success: pollingUnits.length,
+      failed: files.length - pollingUnits.length,
+      errors,
+      pollingUnits,
+    };
+  }
+
+  // Parses CODE_NAME.csv / .xlsx files without writing anything. Throws if none are usable.
+  private async parseUploadFiles(files: Express.Multer.File[]): Promise<{
+    parsed: ParsedPollingUnitFile[];
+    errors: string[];
+  }> {
+    const errors: string[] = [];
+    const parsed: ParsedPollingUnitFile[] = [];
+    const seenCodes = new Set<string>();
+
+    for (const file of files) {
+      const extension = StringUtils.getFileExtension(file.originalname);
+      if (extension !== 'csv' && extension !== 'xlsx') {
+        errors.push(
+          `${file.originalname}: unsupported file type, expected .csv or .xlsx`,
+        );
+        continue;
+      }
+
+      const baseName = file.originalname
+        .replace(/\.(csv|xlsx)$/i, '')
+        .replace(/_cleaned$/i, '');
+      const separator = baseName.indexOf('_');
+      const code = separator > 0 ? baseName.slice(0, separator).trim() : '';
+      const name =
+        separator > 0
+          ? baseName
+              .slice(separator + 1)
+              .replace(/_/g, ' ')
+              .trim()
+          : '';
+
+      if (!code || !name) {
+        errors.push(
+          `${file.originalname}: invalid filename, expected CODE_NAME.csv (e.g. 003_COMMUNITY_PRIMARY_SCHOOL.csv)`,
+        );
+        continue;
+      }
+      if (seenCodes.has(code)) {
+        errors.push(
+          `${file.originalname}: another file in this upload already uses PU code ${code}`,
+        );
+        continue;
+      }
+
+      try {
+        const rows =
+          extension === 'csv'
+            ? await RegisteredHelper.processFileCsv(file)
+            : RegisteredHelper.processFile(file);
+        if (!rows || rows.length === 0) {
+          errors.push(`${file.originalname}: no voter rows found`);
+          continue;
+        }
+        seenCodes.add(code);
+        parsed.push({ file: file.originalname, code, name, rows });
+      } catch (error) {
+        errors.push(`${file.originalname}: ${error.message}`);
+      }
+    }
+
+    if (parsed.length === 0) {
+      throw new BadRequestException([
+        'No valid polling unit files to upload',
+        ...errors,
+      ]);
+    }
+
+    return { parsed, errors };
+  }
+
+  // Creates one PU per parsed file with its voters (refIndex 1..n). Skips PU codes
+  // that already exist in the ward; a PU whose voter insert fails is rolled back.
+  private async createPollingUnitsWithVoters(
+    ward: WardDocument,
+    parsed: ParsedPollingUnitFile[],
+    errors: string[],
+  ): Promise<UploadedPollingUnit[]> {
+    const pollingUnits: UploadedPollingUnit[] = [];
+
+    for (const item of parsed) {
+      const exists = await this.pollingUnitModel.exists({
+        ward: ward._id,
+        code: item.code,
+      });
+      if (exists) {
+        errors.push(
+          `${item.file}: polling unit ${item.code} already exists in ward ${ward.name}, skipped`,
+        );
+        continue;
+      }
+
+      let pollingUnit: PollingUnitDocument | undefined;
+      try {
+        pollingUnit = await this.pollingUnitModel.create({
+          ward: ward._id,
+          code: item.code,
+          name: item.name.toUpperCase(),
+          registeredCount: item.rows.length,
+          accreditedCount: item.rows.length,
+        });
+
+        const voters: Registered[] = item.rows.map((row, i) => {
+          const voter = new Registered();
+          voter.name = row['NAME'];
+          voter.id = row['ID'];
+          voter.gender = row['GENDER'];
+          voter.dob = row['DOB'];
+          voter.pollingUnit = pollingUnit;
+          voter.refIndex = i + 1;
+          return voter;
+        });
+        await this.registeredModel.insertMany(voters);
+
+        pollingUnits.push({
+          pollingUnitId: pollingUnit._id.toString(),
+          code: item.code,
+          name: pollingUnit.name,
+          dataCount: item.rows.length,
+        });
+        this.logger.log(
+          `Uploaded ${item.rows.length} voters to PU ${item.code} in ward ${ward.name}`,
+        );
+      } catch (error) {
+        // Roll back the PU if inserting voters fails.
+        if (pollingUnit) {
+          await this.registeredModel.deleteMany({
+            pollingUnit: pollingUnit._id,
+          });
+          await this.pollingUnitModel.deleteOne({ _id: pollingUnit._id });
+        }
+        this.logger.error(`Error uploading ${item.file}: ${error.message}`);
+        errors.push(`${item.file}: ${error.message}`);
+      }
+    }
+
+    return pollingUnits;
+  }
+}

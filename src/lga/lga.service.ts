@@ -9,6 +9,8 @@ import { Model } from 'mongoose';
 import { Lga, LgaDocument } from './schemas/lga.schema';
 import LgaRequestDto from './dtos/request/lga.request.dto';
 import { StateService } from '../state/state.service';
+import { StateNotFoundException } from '../exceptions/business.exceptions';
+import { StringUtils } from '../utils/common.utils';
 
 @Injectable()
 export class LgaService {
@@ -73,6 +75,40 @@ export class LgaService {
     if (!state) throw new NotFoundException('State not found');
 
     return await this.lgaModel.find({ state });
+  }
+
+  // Looks the state up by code; the LGA is matched on state + code and created if missing.
+  async findOrCreateByCode(
+    stateCode: string,
+    lgaCode: string,
+    lgaName: string,
+  ): Promise<{ lga: LgaDocument; created: boolean }> {
+    const state = await this.stateService.findByCode(stateCode);
+    if (!state) throw new StateNotFoundException();
+
+    const name = StringUtils.normalizeString(lgaName);
+    const code = lgaCode.trim();
+
+    const existing = await this.lgaModel.findOne({ state: state._id, code });
+    if (existing) {
+      if (existing.name !== name) {
+        throw new ConflictException(
+          `LGA code ${code} already belongs to LGA ${existing.name} in state ${state.name}`,
+        );
+      }
+      this.logger.log(`Using existing LGA ${existing.code} ${existing.name}`);
+      return { lga: existing, created: false };
+    }
+
+    const lga = await new this.lgaModel({
+      state: state._id,
+      name,
+      code,
+    }).save();
+    this.logger.log(
+      `Created LGA ${lga.code} ${lga.name} in state ${state.name}`,
+    );
+    return { lga, created: true };
   }
 
   async find(id: string): Promise<Lga | null> {
