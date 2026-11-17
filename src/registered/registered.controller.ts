@@ -67,6 +67,7 @@ export class RegisteredController {
       duplicateDto.toPollingUnitId,
       duplicateDto.count,
       duplicateDto.refIndex,
+      duplicateDto.allowReuse,
     );
     return {
       message: HTTP_MESSAGES.SUCCESS.REGISTERED_VOTERS_DUPLICATED,

@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class DuplicateRegisteredDto {
     @IsNotEmpty()
@@ -18,4 +18,9 @@ export class DuplicateRegisteredDto {
     @IsNumber()
     @Min(1)
     refIndex?: number;
+
+    // true: also pick source voters already used for an earlier duplicate.
+    @IsOptional()
+    @IsBoolean()
+    allowReuse?: boolean;
 }

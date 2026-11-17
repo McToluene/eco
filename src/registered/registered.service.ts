@@ -446,6 +446,7 @@ export class RegisteredService {
     toPollingUnitId: string,
     count?: number,
     refIndex?: number,
+    allowReuse = false,
   ): Promise<void> {
     if (fromPollingUnitId === toPollingUnitId) {
       throw new SamePollingUnitException();
@@ -464,7 +465,11 @@ export class RegisteredService {
       throw new DestinationPollingUnitNotFoundException();
     }
 
-    const baseQuery: any = { pollingUnit: fromPu, usedForDuplicate: { $ne: true } };
+    // By default a source voter can be duplicated only once; allowReuse lifts that.
+    const baseQuery: any = { pollingUnit: fromPu };
+    if (!allowReuse) {
+      baseQuery.usedForDuplicate = { $ne: true };
+    }
     if (refIndex !== undefined) {
       baseQuery.refIndex = { $gte: refIndex };
     }
@@ -512,7 +517,7 @@ export class RegisteredService {
 
     await this.registeredModel.insertMany(copies);
 
-    // Mark source records as used so they cannot be duplicated to another PU
+    // Mark source records as used so they cannot be duplicated again (unless allowReuse)
     const usedSourceIds = votersToCopy.map((v) => v._id);
     await this.registeredModel.bulkWrite(
       usedSourceIds.map((id) => ({
