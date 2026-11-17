@@ -26,15 +26,37 @@ export class AuthService {
   ) { }
 
   async validateUser(userName: string, password: string): Promise<User> {
-    let confirmedUser: User;
     const user = await this.userService.findOne(userName);
-    if (user && (await bcrypt.compare(password, user.password))) {
-      if ((user as any).isDisabled) {
-        return null;
-      }
-      confirmedUser = user;
+    if (!user) {
+      this.logger.warn(`Login: user '${userName}' not found`);
+      return undefined;
     }
-    return confirmedUser;
+
+    const passwordMatches = await bcrypt.compare(password, user.password);
+    if (!passwordMatches) {
+      this.logger.warn(`Login: bad password for '${userName}'`);
+      return undefined;
+    }
+
+    if (user.isDisabled === true) {
+      this.logger.warn(`Login: user '${userName}' is disabled`);
+      return undefined;
+    }
+
+    if (typeof (user as any)._id === 'string') {
+      this.logger.error(
+        `Login: user '${userName}' has STRING _id - data was migrated without BSON types!`,
+      );
+    }
+    const firstUnit: any = (user as any).assignedPollingUnits?.[0];
+    if (firstUnit && typeof firstUnit === 'string') {
+      this.logger.error(
+        `Login: user '${userName}' has STRING assignedPollingUnits refs - populate will fail!`,
+      );
+    }
+
+    this.logger.log(`Login: user '${userName}' validated (type=${user.userType})`);
+    return user;
   }
 
   async login(user: User): Promise<AuthResponse> {
