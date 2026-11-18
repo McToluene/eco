@@ -12,6 +12,7 @@ import {
   PollingUnit,
   PollingUnitDocument,
 } from '../ward/schemas/polling.schema';
+import { UserService } from '../user/user.service';
 import { RegisteredHelper } from './helpers/registered.helper';
 import { UploadApiResponse, UploadApiErrorResponse, v2 } from 'cloudinary';
 import { ConfigService } from '@nestjs/config';
@@ -59,6 +60,9 @@ export class RegisteredService {
 
     @InjectModel(PollingUnit.name)
     private pollingUnitModel: Model<PollingUnit>,
+
+    private userService: UserService,
+
     config: ConfigService,
     @Inject(forwardRef(() => WardService))
     private wardService: WardService,
@@ -97,7 +101,10 @@ export class RegisteredService {
     await this.registeredModel.insertMany(registeredVoters);
   }
 
-  async findRegisteredVoters(pollingUnitId: string, onlyWithoutImage: boolean = false): Promise<Registered[]> {
+  async findRegisteredVoters(
+    pollingUnitId: string,
+    onlyWithoutImage = false,
+  ): Promise<Registered[]> {
     const pu = await this.pollingUnitModel.findById(pollingUnitId).exec();
     if (!pu) throw new PollingUnitNotFoundException();
 
@@ -110,13 +117,13 @@ export class RegisteredService {
       ];
     }
 
-    return await this.registeredModel
-      .find(filter)
-      .sort({ name: 1 })
-      .exec();
+    return await this.registeredModel.find(filter).sort({ name: 1 }).exec();
   }
 
-  async deleteRegistered(pollingUnitId: string, onlyWithoutImage: boolean = false): Promise<number> {
+  async deleteRegistered(
+    pollingUnitId: string,
+    onlyWithoutImage = false,
+  ): Promise<number> {
     const pu = await this.pollingUnitModel.findById(pollingUnitId).exec();
     if (!pu) throw new PollingUnitNotFoundException();
 
@@ -136,6 +143,34 @@ export class RegisteredService {
     const result = await this.registeredModel.deleteMany(filter).exec();
     // deletedCount may be undefined in some drivers, default to 0
     return (result && (result as any).deletedCount) || 0;
+  }
+
+  /**
+   * Delete specific registered records by their _id. Optionally scoped to a
+   * polling unit. When a pollingUnitId is provided, that PU's counts are
+   * re-synced after deletion so registeredCount/accreditedCount stay exact.
+   */
+  async deleteRegisteredByIds(
+    ids: string[],
+    pollingUnitId?: string,
+  ): Promise<{ deletedCount: number }> {
+    if (!ids || ids.length === 0) {
+      throw new BadRequestException('No ids provided');
+    }
+
+    const filter: any = { _id: { $in: ids } };
+    if (pollingUnitId) {
+      filter.pollingUnit = pollingUnitId;
+    }
+
+    const result = await this.registeredModel.deleteMany(filter).exec();
+    const deletedCount = (result && (result as any).deletedCount) || 0;
+
+    if (pollingUnitId) {
+      await this.syncPollingUnitCounts(pollingUnitId);
+    }
+
+    return { deletedCount };
   }
 
   async uploadFile(
@@ -281,32 +316,43 @@ export class RegisteredService {
     return { registeredCount, accreditedCount };
   }
 
-  async syncPollingUnitCountsBulk(
-    pollingUnitIds: string[],
-  ): Promise<{ pollingUnitId: string; registeredCount: number; accreditedCount: number }[]> {
+  async syncPollingUnitCountsBulk(pollingUnitIds: string[]): Promise<
+    {
+      pollingUnitId: string;
+      registeredCount: number;
+      accreditedCount: number;
+    }[]
+  > {
     const results = await Promise.all(
       pollingUnitIds.map(async (id) => {
-        const { registeredCount, accreditedCount } = await this.syncPollingUnitCounts(id);
+        const { registeredCount, accreditedCount } =
+          await this.syncPollingUnitCounts(id);
         return { pollingUnitId: id, registeredCount, accreditedCount };
       }),
     );
     return results;
   }
 
-  async countRegisteredVotersByPollingUnit(pollingUnitId: string): Promise<number> {
+  async countRegisteredVotersByPollingUnit(
+    pollingUnitId: string,
+  ): Promise<number> {
     this.logger.log('Counting registered voters for polling unit');
-    return await this.registeredModel.countDocuments({ pollingUnit: pollingUnitId });
+    return await this.registeredModel.countDocuments({
+      pollingUnit: pollingUnitId,
+    });
   }
 
-  async countRegisteredVotersByPollingUnits(pollingUnitIds: string[]): Promise<Map<string, number>> {
+  async countRegisteredVotersByPollingUnits(
+    pollingUnitIds: string[],
+  ): Promise<Map<string, number>> {
     this.logger.log('Counting registered voters for multiple polling units');
     const counts = await this.registeredModel.aggregate([
-      { $match: { pollingUnit: { $in: pollingUnitIds.map(id => id) } } },
-      { $group: { _id: '$pollingUnit', count: { $sum: 1 } } }
+      { $match: { pollingUnit: { $in: pollingUnitIds.map((id) => id) } } },
+      { $group: { _id: '$pollingUnit', count: { $sum: 1 } } },
     ]);
 
     const countsMap = new Map<string, number>();
-    counts.forEach(item => {
+    counts.forEach((item) => {
       countsMap.set(item._id.toString(), item.count);
     });
 
@@ -336,14 +382,13 @@ export class RegisteredService {
       throw new DestinationPollingUnitNotFoundException();
     }
 
-    const query = refIndex !== undefined
-      ? { pollingUnit: fromPu, refIndex: { $gte: refIndex } }
-      : { pollingUnit: fromPu };
+    const query =
+      refIndex !== undefined
+        ? { pollingUnit: fromPu, refIndex: { $gte: refIndex } }
+        : { pollingUnit: fromPu };
 
     // Get all voters matching the query for randomization
-    const allVoters = await this.registeredModel
-      .find(query)
-      .exec();
+    const allVoters = await this.registeredModel.find(query).exec();
 
     if (allVoters.length === 0) {
       throw new InsufficientRegisteredVotersException();
@@ -537,54 +582,359 @@ export class RegisteredService {
     );
   }
 
+  /**
+   * Duplicate voters from source -> destination, but ONLY voters whose national
+   * 'id' is NOT already present in any polling unit assigned to `username`.
+   * Prevents creating a duplicate voter within that user's assignment while
+   * restoring a destination's count.
+   *
+   * Returns the number copied and (optionally) the copied source ids.
+   */
+  async duplicateRegisteredVotersSafe(
+    fromPollingUnitId: string,
+    toPollingUnitId: string,
+    username: string,
+    count?: number,
+    voterIds?: string[],
+  ): Promise<{ copied: number; voterIds: string[] }> {
+    if (fromPollingUnitId === toPollingUnitId) {
+      throw new SamePollingUnitException();
+    }
+
+    const [fromPu, toPu] = await Promise.all([
+      this.pollingUnitModel.findById(fromPollingUnitId).exec(),
+      this.pollingUnitModel.findById(toPollingUnitId).exec(),
+    ]);
+    if (!fromPu) throw new SourcePollingUnitNotFoundException();
+    if (!toPu) throw new DestinationPollingUnitNotFoundException();
+
+    const user = await this.userService.findOne(username);
+    if (!user) {
+      throw new BadRequestException(`User ${username} not found`);
+    }
+    const assignedIds: any[] = ((user.assignedPollingUnits || []) as any[]).map(
+      (pu: any) => pu._id ?? pu,
+    );
+
+    // Build the forbidden set: every national voter 'id' present in the user's assigned PUs.
+    let forbiddenIds = new Set<string>();
+    if (assignedIds.length > 0) {
+      const forbiddenVoters = await this.registeredModel
+        .find({ pollingUnit: { $in: assignedIds } })
+        .select('id')
+        .lean()
+        .exec();
+      forbiddenIds = new Set(
+        forbiddenVoters.map((v: any) => v.id).filter((v: any) => !!v),
+      );
+    }
+
+    // Candidate source voters (optionally restricted to explicit voterIds).
+    const baseQuery: any = { pollingUnit: fromPu };
+    if (voterIds && voterIds.length > 0) {
+      baseQuery._id = { $in: voterIds };
+    }
+    const candidates = await this.registeredModel
+      .find(baseQuery)
+      .select('_id id name gender dob imageUrl')
+      .exec();
+
+    // Keep only those whose 'id' is not already in the user's assignment.
+    const eligible = candidates.filter((v) => v.id && !forbiddenIds.has(v.id));
+
+    if (eligible.length === 0) {
+      throw new InsufficientRegisteredVotersException();
+    }
+
+    // Decide which eligible voters to copy.
+    // - If voterIds provided: copy exactly the eligible ones among them (already
+    //   filtered by find + eligibility above), no more.
+    // - Else: copy up to `count` (or all eligible if count omitted / larger).
+    let votersToCopy = eligible;
+    if ((!voterIds || voterIds.length === 0) && count) {
+      votersToCopy = eligible.slice(0, count);
+    }
+
+    const actualCount = votersToCopy.length;
+    if (actualCount === 0) {
+      throw new InsufficientRegisteredVotersException();
+    }
+
+    const maxRefInDest = await this.registeredModel
+      .findOne({ pollingUnit: toPu })
+      .sort({ refIndex: -1 })
+      .select('refIndex')
+      .exec();
+    const startRefIndex = maxRefInDest ? maxRefInDest.refIndex + 1 : 1;
+
+    const copies = votersToCopy.map((voter, index) => ({
+      name: voter.name,
+      id: voter.id,
+      gender: voter.gender,
+      dob: voter.dob,
+      imageUrl: voter.imageUrl,
+      pollingUnit: toPu._id,
+      refIndex: startRefIndex + index,
+      isDuplicated: true,
+    }));
+
+    await this.registeredModel.insertMany(copies);
+
+    await this.pollingUnitModel.findByIdAndUpdate(toPollingUnitId, {
+      $inc: { registeredCount: actualCount },
+    });
+
+    this.logger.log(
+      `Safe-duplicated ${actualCount} voters ${fromPollingUnitId} -> ${toPollingUnitId} (excluded user ${username} assignment)`,
+    );
+
+    return {
+      copied: actualCount,
+      voterIds: votersToCopy.map((v) => v.id),
+    };
+  }
+
+  /**
+   * Batch refill: build the forbidden voter-id set for `username` ONCE, then
+   * fill a list of destinations from a pool of source polling units. Only voters
+   * whose national 'id' is not already in the user's assigned PUs (and not
+   * already copied earlier in this same request) are used, so no duplicate voter
+   * is created inside that assignment.
+   *
+   * Streams source PUs one at a time, buffering only as many eligible voters as
+   * remain to be filled (so memory stays bounded by total demand).
+   */
+  async refillSafe(
+    username: string,
+    destinations: { pollingUnitId: string; count: number }[],
+    sourcePollingUnitIds: string[],
+    maxScan?: number,
+  ): Promise<{
+    filled: { pollingUnitId: string; requested: number; copied: number }[];
+    totalRequested: number;
+    totalCopied: number;
+    remaining: number;
+    poolsExhausted: boolean;
+  }> {
+    if (!destinations || destinations.length === 0) {
+      throw new BadRequestException('No destinations provided');
+    }
+    if (!sourcePollingUnitIds || sourcePollingUnitIds.length === 0) {
+      throw new BadRequestException('No source polling units provided');
+    }
+
+    const user = await this.userService.findOne(username);
+    if (!user) {
+      throw new BadRequestException(`User ${username} not found`);
+    }
+    const assignedIds: any[] = ((user.assignedPollingUnits || []) as any[]).map(
+      (pu: any) => pu._id ?? pu,
+    );
+
+    // Forbidden set = every voter 'id' already present in the user's assigned PUs.
+    const forbiddenIds = new Set<string>();
+    if (assignedIds.length > 0) {
+      const forbiddenVoters = await this.registeredModel
+        .find({ pollingUnit: { $in: assignedIds } })
+        .select('id')
+        .lean()
+        .exec();
+      for (const v of forbiddenVoters as any[]) {
+        if (v.id) forbiddenIds.add(v.id);
+      }
+    }
+
+    const totalRequested = destinations.reduce((s, d) => s + d.count, 0);
+    let remaining = totalRequested;
+
+    // Buffer of eligible source voters not yet consumed.
+    const buffer: any[] = [];
+    let scanned = 0;
+    let scanCapHit = false;
+
+    const sourceIter = sourcePollingUnitIds[Symbol.iterator]();
+    let sourcesDone = false;
+
+    // Load source PUs until the buffer covers the remaining demand or pool ends.
+    const loadMore = async () => {
+      while (!sourcesDone && !scanCapHit && buffer.length < remaining) {
+        const next = sourceIter.next();
+        if (next.done) {
+          sourcesDone = true;
+          break;
+        }
+        const srcId = next.value;
+        const batch = await this.registeredModel
+          .find({ pollingUnit: srcId })
+          .select('_id id name gender dob imageUrl')
+          .lean()
+          .exec();
+        for (const v of batch as any[]) {
+          if (!v.id) continue;
+          if (forbiddenIds.has(v.id)) continue;
+          if (maxScan && scanned >= maxScan) {
+            scanCapHit = true;
+            break;
+          }
+          // Add to forbidden immediately so it is never picked twice in this run.
+          forbiddenIds.add(v.id);
+          buffer.push(v);
+          scanned++;
+        }
+      }
+    };
+
+    await loadMore();
+
+    const filled: {
+      pollingUnitId: string;
+      requested: number;
+      copied: number;
+    }[] = [];
+
+    for (const dest of destinations) {
+      const destPU = await this.pollingUnitModel
+        .findById(dest.pollingUnitId)
+        .exec();
+      if (!destPU) {
+        filled.push({
+          pollingUnitId: dest.pollingUnitId,
+          requested: dest.count,
+          copied: 0,
+        });
+        continue;
+      }
+
+      let stillNeed = dest.count;
+      let copied = 0;
+      let refIndex = await this.nextRefIndex(dest.pollingUnitId);
+
+      while (stillNeed > 0) {
+        if (buffer.length === 0) {
+          await loadMore();
+          if (buffer.length === 0) break; // pool exhausted
+        }
+        const take = Math.min(stillNeed, buffer.length);
+        const chosen = buffer.splice(0, take);
+
+        const copies = chosen.map((voter, index) => ({
+          name: voter.name,
+          id: voter.id,
+          gender: voter.gender,
+          dob: voter.dob,
+          imageUrl: voter.imageUrl,
+          pollingUnit: destPU._id,
+          refIndex: refIndex + index,
+          isDuplicated: true,
+        }));
+        refIndex += take;
+
+        await this.registeredModel.insertMany(copies);
+        await this.pollingUnitModel.findByIdAndUpdate(dest.pollingUnitId, {
+          $inc: { registeredCount: take },
+        });
+
+        copied += take;
+        stillNeed -= take;
+        remaining -= take;
+      }
+
+      filled.push({
+        pollingUnitId: dest.pollingUnitId,
+        requested: dest.count,
+        copied,
+      });
+    }
+
+    const totalCopied = filled.reduce((s, f) => s + f.copied, 0);
+    // remaining already decremented per copy; recompute for clarity.
+    const stillRemaining = totalRequested - totalCopied;
+
+    this.logger.log(
+      `refillSafe for ${username}: requested ${totalRequested}, copied ${totalCopied}, remaining ${stillRemaining}`,
+    );
+
+    return {
+      filled,
+      totalRequested,
+      totalCopied,
+      remaining: stillRemaining,
+      poolsExhausted: buffer.length === 0 && (sourcesDone || scanCapHit),
+    };
+  }
+
+  // Returns the next refIndex to use in a destination PU (max+1, or 1).
+  private async nextRefIndex(pollingUnitId: string): Promise<number> {
+    const maxRef = await this.registeredModel
+      .findOne({ pollingUnit: pollingUnitId })
+      .sort({ refIndex: -1 })
+      .select('refIndex')
+      .exec();
+    return maxRef ? maxRef.refIndex + 1 : 1;
+  }
+
   async bulkUploadFromFolder(
     wardId: string,
     files: Express.Multer.File[],
-  ): Promise<{ 
-    success: number; 
-    failed: number; 
+  ): Promise<{
+    success: number;
+    failed: number;
     errors: string[];
     pollingUnits: { pollingUnitId: string; code: string; dataCount: number }[];
   }> {
     this.logger.log(`Processing bulk upload for ward: ${wardId}`);
-    
+
     let successCount = 0;
     let failedCount = 0;
     const errors: string[] = [];
-    const pollingUnits: { pollingUnitId: string; code: string; dataCount: number }[] = [];
+    const pollingUnits: {
+      pollingUnitId: string;
+      code: string;
+      dataCount: number;
+    }[] = [];
 
     // Filter files that end with "_cleaned"
-    const cleanedFiles = files.filter(file => {
+    const cleanedFiles = files.filter((file) => {
       const nameWithoutExt = file.originalname.replace(/\.(csv|CSV)$/, '');
       return nameWithoutExt.endsWith('_cleaned');
     });
 
-    this.logger.log(`Found ${cleanedFiles.length} cleaned CSV files to process`);
+    this.logger.log(
+      `Found ${cleanedFiles.length} cleaned CSV files to process`,
+    );
 
     for (const file of cleanedFiles) {
       try {
         // Extract filename without extension
         const nameWithoutExt = file.originalname.replace(/\.(csv|CSV)$/, '');
-        
+
         // Remove "_cleaned" suffix
         const baseName = nameWithoutExt.replace(/_cleaned$/i, '');
-        
+
         // Split by underscore to get code and name
         const parts = baseName.split('_');
-        
+
         if (parts.length < 2) {
-          errors.push(`Invalid filename format: ${file.originalname}. Expected format: CODE_NAME_cleaned.csv`);
+          errors.push(
+            `Invalid filename format: ${file.originalname}. Expected format: CODE_NAME_cleaned.csv`,
+          );
           failedCount++;
           continue;
         }
 
         // First part is the code
         const code = parts[0];
-        
-        // Rest is the name (replace underscores with spaces, remove any remaining "_cleaned")
-        let name = parts.slice(1).join(' ').replace(/_cleaned/gi, '').trim();
 
-        this.logger.log(`Processing file: ${file.originalname} - Code: ${code}, Name: ${name}`);
+        // Rest is the name (replace underscores with spaces, remove any remaining "_cleaned")
+        const name = parts
+          .slice(1)
+          .join(' ')
+          .replace(/_cleaned/gi, '')
+          .trim();
+
+        this.logger.log(
+          `Processing file: ${file.originalname} - Code: ${code}, Name: ${name}`,
+        );
 
         // Process CSV data first to get the count
         const data = await RegisteredHelper.processFileCsv(file);
@@ -598,13 +948,14 @@ export class RegisteredService {
         const voterCount = data.length;
 
         // Create polling unit with voter counts
-        const pollingUnit = await this.wardService.createPollingUnitByCodeAndName(
-          wardId,
-          code,
-          name,
-          voterCount,
-          voterCount,
-        );
+        const pollingUnit =
+          await this.wardService.createPollingUnitByCodeAndName(
+            wardId,
+            code,
+            name,
+            voterCount,
+            voterCount,
+          );
 
         // Create registered voters
         const registeredVoters: Registered[] = data.map((row, i) => {
@@ -628,17 +979,23 @@ export class RegisteredService {
           dataCount: data.length,
         });
 
-        this.logger.log(`Successfully uploaded ${data.length} voters for polling unit ${code} - ${name}`);
+        this.logger.log(
+          `Successfully uploaded ${data.length} voters for polling unit ${code} - ${name}`,
+        );
         successCount++;
       } catch (error) {
-        this.logger.error(`Error processing file ${file.originalname}: ${error.message}`);
+        this.logger.error(
+          `Error processing file ${file.originalname}: ${error.message}`,
+        );
         errors.push(`${file.originalname}: ${error.message}`);
         failedCount++;
       }
     }
 
-    this.logger.log(`Bulk upload completed. Success: ${successCount}, Failed: ${failedCount}`);
-    
+    this.logger.log(
+      `Bulk upload completed. Success: ${successCount}, Failed: ${failedCount}`,
+    );
+
     return {
       success: successCount,
       failed: failedCount,
