@@ -27,6 +27,9 @@ import { RequirePollingUnits, Roles } from '../user/decorators/roles.decorator';
 import { UserType } from '../user/enum/userType.enum';
 import { MoveRegisteredDto } from './dtos/request/move-registered.request.dto';
 import { DuplicateRegisteredDto } from './dtos/request/duplicate-registered.request.dto';
+import { DuplicateSafeDto } from './dtos/request/duplicate-safe.request.dto';
+import { DeleteByIdsDto } from './dtos/request/delete-by-ids.request.dto';
+import { RefillSafeDto } from './dtos/request/refill-safe.request.dto';
 import { SyncCountsBulkDto } from './dtos/request/sync-counts.request.dto';
 import { UploadWithWardDto } from './dtos/request/upload-with-ward.request.dto';
 import { UploadFolderDto } from './dtos/request/upload-folder.request.dto';
@@ -35,7 +38,7 @@ import { HTTP_MESSAGES } from '../constants/messages.constants';
 @Controller('registered')
 @UseGuards(JwtAuthGuard, PollingUnitsGuard)
 export class RegisteredController {
-  constructor(private readonly registeredService: RegisteredService) { }
+  constructor(private readonly registeredService: RegisteredService) {}
 
   @Put('/move')
   @UseGuards(RolesGuard)
@@ -76,13 +79,40 @@ export class RegisteredController {
     };
   }
 
+  // Duplicate voters from a source into a destination, but only voters whose
+  // national 'id' is not already present in ANY polling unit assigned to the
+  // given username. Prevents creating duplicate voters within that assignment.
+  @Put('/duplicate-safe')
+  @UseGuards(RolesGuard)
+  @Roles(UserType.ADMIN)
+  async duplicateRegisteredVotersSafe(
+    @Body() dto: DuplicateSafeDto,
+  ): Promise<BaseResponse<{ copied: number; voterIds: string[] }>> {
+    const data = await this.registeredService.duplicateRegisteredVotersSafe(
+      dto.fromPollingUnitId,
+      dto.toPollingUnitId,
+      dto.username,
+      dto.count,
+      dto.voterIds,
+    );
+    return {
+      message: HTTP_MESSAGES.SUCCESS.REGISTERED_VOTERS_DUPLICATED,
+      data,
+      status: HttpStatus.OK,
+    };
+  }
+
   @Put('/sync-counts/:pollingUnitId')
   @UseGuards(RolesGuard)
   @Roles(UserType.ADMIN)
   async syncPollingUnitCounts(
     @Param('pollingUnitId') pollingUnitId: string,
-  ): Promise<BaseResponse<{ registeredCount: number; accreditedCount: number }>> {
-    const result = await this.registeredService.syncPollingUnitCounts(pollingUnitId);
+  ): Promise<
+    BaseResponse<{ registeredCount: number; accreditedCount: number }>
+  > {
+    const result = await this.registeredService.syncPollingUnitCounts(
+      pollingUnitId,
+    );
     return {
       message: HTTP_MESSAGES.SUCCESS.POLLING_UNIT_COUNTS_SYNCED,
       data: result,
@@ -93,10 +123,18 @@ export class RegisteredController {
   @Put('/sync-counts')
   @UseGuards(RolesGuard)
   @Roles(UserType.ADMIN)
-  async syncPollingUnitCountsBulk(
-    @Body() dto: SyncCountsBulkDto,
-  ): Promise<BaseResponse<{ pollingUnitId: string; registeredCount: number; accreditedCount: number }[]>> {
-    const results = await this.registeredService.syncPollingUnitCountsBulk(dto.pollingUnitIds);
+  async syncPollingUnitCountsBulk(@Body() dto: SyncCountsBulkDto): Promise<
+    BaseResponse<
+      {
+        pollingUnitId: string;
+        registeredCount: number;
+        accreditedCount: number;
+      }[]
+    >
+  > {
+    const results = await this.registeredService.syncPollingUnitCountsBulk(
+      dto.pollingUnitIds,
+    );
     return {
       message: HTTP_MESSAGES.SUCCESS.POLLING_UNIT_COUNTS_SYNCED,
       data: results,
@@ -130,6 +168,47 @@ export class RegisteredController {
     return {
       message: 'Registered voters fetched successfully!',
       data: registered,
+      status: HttpStatus.OK,
+    };
+  }
+
+  // Batch refill: compute the username's forbidden voter-id set once, then fill
+  // many destinations from a pool of source polling units without creating any
+  // duplicate voter inside the user's assignment.
+  @Put('/refill-safe')
+  @UseGuards(RolesGuard)
+  @Roles(UserType.ADMIN)
+  async refillSafe(
+    @Body() dto: RefillSafeDto,
+  ): Promise<
+    BaseResponse<Awaited<ReturnType<RegisteredService['refillSafe']>>>
+  > {
+    const data = await this.registeredService.refillSafe(
+      dto.username,
+      dto.destinations,
+      dto.sourcePollingUnitIds,
+      dto.maxScan,
+    );
+    return {
+      message: HTTP_MESSAGES.SUCCESS.REGISTERED_VOTERS_DUPLICATED,
+      data,
+      status: HttpStatus.OK,
+    };
+  }
+
+  @Delete('/by-ids')
+  @UseGuards(RolesGuard)
+  @Roles(UserType.ADMIN)
+  async deleteRegisteredByIds(
+    @Body() dto: DeleteByIdsDto,
+  ): Promise<BaseResponse<{ deletedCount: number }>> {
+    const data = await this.registeredService.deleteRegisteredByIds(
+      dto.ids,
+      dto.pollingUnitId,
+    );
+    return {
+      message: 'Registered voters deleted successfully!',
+      data,
       status: HttpStatus.OK,
     };
   }
@@ -188,12 +267,18 @@ export class RegisteredController {
   async bulkUploadFromFolder(
     @UploadedFiles() files: Array<Express.Multer.File>,
     @Param('wardId') wardId: string,
-  ): Promise<BaseResponse<{ 
-    success: number; 
-    failed: number; 
-    errors: string[];
-    pollingUnits: { pollingUnitId: string; code: string; dataCount: number }[];
-  }>> {
+  ): Promise<
+    BaseResponse<{
+      success: number;
+      failed: number;
+      errors: string[];
+      pollingUnits: {
+        pollingUnitId: string;
+        code: string;
+        dataCount: number;
+      }[];
+    }>
+  > {
     if (!files || files.length === 0) {
       throw new BadRequestException('Please upload CSV files');
     }
